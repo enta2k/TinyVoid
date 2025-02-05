@@ -1,207 +1,610 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!DOCTYPE html>
-<html lang="en">
-<head>
   <meta charset="UTF-8">
-  <title>ASCII Multi‑Step Glitch per Line</title>
+  <!-- Ensures proper scaling on smartphones -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purple Labyrinth Text Adventure</title>
   <style>
+    /* Base page styling */
     body {
-      background: #000;
-      font-family: monospace;
-      margin: 0;
-      padding: 20px;
-      margin: 0 auto; 
-      text-align: center;
-    }
-    /* The container for the ASCII art */
-    #tiresult {
-      font-size: 9px;
       background-color: #000;
+      color: purple;
+      font-family: "Courier New", Courier, monospace;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    /* Game container: fixed at 630x980 (70% of 900x1400) */
+    #game-container {
+      position: relative;
+      width: 630px;
+      height: 980px;
+      max-width: 100%;
+      max-height: 100%;
+      padding: 20px;
+      border: 2px solid purple;
+      background-color: #000;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    /* Particle canvas covers the entire container behind all content */
+    #particleCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    /* Header container occupies the top 33% of the game container */
+    #header-container {
+      flex: 0 0 33%;
+      overflow: visible;
+      position: relative;
+      z-index: 1;
+    }
+    /* Your provided ASCII art styling; override the font-size to 4.5px so the full art fits */
+    #tiresult {
+      font-size: 4.5px !important;
+      background-color: transparent;
       font-weight: bold;
       padding: 4px 5px;
-      color: #E6E6E6;
-
-      /* Keep each line as a single horizontal row */
+      --fs: 9px;
+      color: purple;
       white-space: pre;
-      overflow-x: auto;
+      margin: 0;
     }
-    /* Each logical line is wrapped in a .line div */
-    .line {
-      display: block;
-      white-space: nowrap;
+    /* Narrative text styling */
+    #text {
+      white-space: pre-wrap;
+      line-height: 1.5;
+      min-height: 200px;
+      width: 100%;
+      margin: 10px 0;
       position: relative;
-      /* 20-second cycle, infinite repeats */
-      animation-duration: 30s;
-      animation-iteration-count: infinite;
-      animation-timing-function: linear;
-
+      z-index: 1;
+      color: purple;
     }
-    /* Alternate glitch directions per line */
-    .line:nth-child(odd) {
-      animation-name: glitch-right;
+    /* Choices styling */
+    #choices {
+      width: 100%;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      position: relative;
+      z-index: 1;
+      color: purple;
     }
-    .line:nth-child(even) {
-      animation-name: glitch-left;
-     }
-    /* Glitch burst: a series of rapid horizontal shifts lasting ~1 second
-       (from 50% to 53% of the 30s cycle) */
-    @keyframes glitch-right {
-      0%, 50%, 53%, 100% { transform: translateX(0); }
-      50.5% { transform: translateX(10px); }
-      50.7% { transform: translateX(-10px); }
-      50.9% { transform: translateX(8px); }
-      51.1% { transform: translateX(-8px); }
-      51.3% { transform: translateX(6px); }
-      51.5% { transform: translateX(-6px); }
-      51.7% { transform: translateX(4px); }
-      51.9% { transform: translateX(-4px); }
-      52.1% { transform: translateX(2px); }
-      52.3% { transform: translateX(-2px); }
-      52.5% { transform: translateX(0); }
+    /* Input container styling */
+    #input-container {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      font-size: 1.1em;
+      position: relative;
+      z-index: 1;
+      /* Initially hidden until choices are finished animating */
+      display: none;
     }
-    @keyframes glitch-left {
-      0%, 50%, 53%, 100% { transform: translateX(0); }
-      50.5% { transform: translateX(-10px); }
-      50.7% { transform: translateX(10px); }
-      50.9% { transform: translateX(-8px); }
-      51.1% { transform: translateX(8px); }
-      51.3% { transform: translateX(-6px); }
-      51.5% { transform: translateX(6px); }
-      51.7% { transform: translateX(-4px); }
-      51.9% { transform: translateX(4px); }
-      52.1% { transform: translateX(-2px); }
-      52.3% { transform: translateX(2px); }
-      52.5% { transform: translateX(0); }
+    /* Blinking prompt indicator */
+    #prompt {
+      margin-right: 5px;
+      animation: blink 1s step-start infinite;
+    }
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    /* Input field styling */
+    #command-input {
+      background: none;
+      border: none;
+      outline: none;
+      color: purple;
+      font-family: inherit;
+      font-size: inherit;
+      flex: 1;
     }
   </style>
 </head>
 <body>
-  <!-- Each logical line of your ASCII art is wrapped in a <div class="line"> -->
-  <div class="line">
-<pre id="tiresult" style="font-size: 9px; background-color: #000000; font-weight: bold; padding: 4px 5px; --fs: 9px;"><b style=color:#000000>00101001111101011110000111110110000001001101101100110011011011101000011010000111</b>
-</div>
-<div class="line">
-<b style=color:#000000>11000011000100111010001101101111111111101000110101000001011110101010000010101111</b>
-</div>
-<div class="line">
-<b style=color:#000000>10011110010101110110001000011111011011100000100001100101100101110100010111100111</b>
-</div>
-<div class="line">
-<b style=color:#000000>01000110110011001110111011010011111110100101111101110100010101011111001001011101</b>
-</div>
-<div class="line">
-<b style=color:#000000>10001011001100111011101000000</b><b style=color:#030303>1</b><b style=color:#141319>1</b><b style=color:#0E0E12>1</b><b style=color:#040506>1</b><b style=color:#000000>10101000110011000011010111101100111011000001001</b>
-</div>
-<div class="line">
-<b style=color:#000000>11110110001101001001011001110</b><b style=color:#0A0A0B>1</b><b style=color:#3F364C>1</b><b style=color:#6E516D>0</b><b style=color:#58435A>0</b><b style=color:#3C3243>0</b><b style=color:#25222D>0</b><b style=color:#141418>0</b><b style=color:#070708>0</b><b style=color:#000000>1100101100011011111000010110111101101111001</b>
-</div>
-<div class="line">
-<b style=color:#000000>00110101111000000111001010000</b><b style=color:#070808>0</b><b style=color:#3D354A>1</b><b style=color:#AA7187>0</b><b style=color:#B8768E>0</b><b style=color:#9F6884>0</b><b style=color:#805674>0</b><b style=color:#5E435F>1</b><b style=color:#3C3046>0</b><b style=color:#262132>1</b><b style=color:#1E1B25>1</b><b style=color:#131115>1</b><b style=color:#050505>1</b><b style=color:#000000>111</b><b style=color:#010101>0</b><b style=color:#060606>1</b><b style=color:#070707>01</b><b style=color:#060606>1</b><b style=color:#020202>0</b><b style=color:#000000>001010001100011110110101110101</b>
-</div>
-<div class="line">
-<b style=color:#000000>00110101111000000111001010000</b><b style=color:#070808>0</b><b style=color:#3D354A>1</b><b style=color:#AA7187>0</b><b style=color:#B8768E>0</b><b style=color:#9F6884>0</b><b style=color:#805674>0</b><b style=color:#5E435F>1</b><b style=color:#3C3046>0</b><b style=color:#262132>1</b><b style=color:#1E1B25>1</b><b style=color:#131115>1</b><b style=color:#050505>1</b><b style=color:#000000>111</b><b style=color:#010101>0</b><b style=color:#060606>1</b><b style=color:#070707>01</b><b style=color:#060606>1</b><b style=color:#020202>0</b><b style=color:#000000>001010001100011110110101110101</b>
-</div>
-<div class="line">
-<b style=color:#000000>000011101110010100100101011111</b><b style=color:#292837>0</b><b style=color:#82596F>0</b><b style=color:#D18696>0</b><b style=color:#C27C8E>0</b><b style=color:#AC6E85>1</b><b style=color:#915C76>1</b><b style=color:#724A65>1</b><b style=color:#4B324C>0</b><b style=color:#271E36>0</b><b style=color:#2A253B>0</b><b style=color:#383246>0</b><b style=color:#312E3C>0</b><b style=color:#363241>1</b><b style=color:#443F53>1</b><b style=color:#4B455B>1</b><b style=color:#524B61>1</b><b style=color:#554E64>0</b><b style=color:#574F66>1</b><b style=color:#5A5268>1</b><b style=color:#5A5266>0</b><b style=color:#514A5B>0</b><b style=color:#464050>0</b><b style=color:#433D4B>1</b><b style=color:#3B3641>1</b><b style=color:#29262D>1</b><b style=color:#171519>0</b><b style=color:#0B0A0B>1</b><b style=color:#000000>11010000010100111011111</b>
-</div>
-<div class="line">
-<b style=color:#000000>000001001100110101011101110110</b><b style=color:#17181D>0</b><b style=color:#3F3249>1</b><b style=color:#B7778C>1</b><b style=color:#BB768A>1</b><b style=color:#8A566C>1</b><b style=color:#674056>1</b><b style=color:#53354B>0</b><b style=color:#452D45>1</b><b style=color:#37283F>1</b><b style=color:#231D33>0</b><b style=color:#353048>0</b><b style=color:#403B53>0</b><b style=color:#433F58>0</b><b style=color:#46405B>1</b><b style=color:#45405A>0</b><b style=color:#433F58>1</b><b style=color:#413D56>0</b><b style=color:#403C56>1</b><b style=color:#403C55>1</b><b style=color:#413C56>1</b><b style=color:#433E58>0</b><b style=color:#46415A>0</b><b style=color:#48435C>1</b><b style=color:#4B455F>1</b><b style=color:#4C4660>0</b><b style=color:#4E475F>1</b><b style=color:#4C465C>0</b><b style=color:#433E50>0</b><b style=color:#373341>0</b><b style=color:#252229>1</b><b style=color:#242127>1</b><b style=color:#26222A>1</b><b style=color:#221F27>0</b><b style=color:#1F1C24>0</b><b style=color:#1C1921>0</b><b style=color:#19151D>1</b><b style=color:#1A151C>0</b><b style=color:#1C161D>0</b><b style=color:#1E1A22>0</b><b style=color:#161517>1</b><b style=color:#000000>0111110011</b>
-</div>
-<div class="line">
-<b style=color:#000000>1001001010011111001111110100100</b><b style=color:#2E2D3E>1</b><b style=color:#5D4058>1</b><b style=color:#A76981>1</b><b style=color:#7D4C64>0</b><b style=color:#51354C>1</b><b style=color:#3A2E44>1</b><b style=color:#342D44>0</b><b style=color:#353047>1</b><b style=color:#38334A>1</b><b style=color:#39344B>1</b><b style=color:#3B364D>01</b><b style=color:#3A364D>0</b><b style=color:#3A364E>1</b><b style=color:#39354D>1</b><b style=color:#38344C>1</b><b style=color:#38344B>1</b><b style=color:#37334A>0</b><b style=color:#353148>0</b><b style=color:#343047>00</b><b style=color:#353148>0</b><b style=color:#343047>1</b><b style=color:#332F46>0</b><b style=color:#332F47>1</b><b style=color:#353148>1</b><b style=color:#37334B>1</b><b style=color:#3C3751>1</b><b style=color:#454058>0</b><b style=color:#534C65>1</b><b style=color:#554D68>1</b><b style=color:#473E56>1</b><b style=color:#49354D>1</b><b style=color:#5D3B52>1</b><b style=color:#7A4A61>1</b><b style=color:#885267>0</b><b style=color:#7B4A62>0</b><b style=color:#4F4251>1</b><b style=color:#0F1010>1</b><b style=color:#000000>1111000100</b>
-</div>
-<div class="line">
-<b style=color:#000000>0001100100001000001111011001010</b><b style=color:#1C1B20>0</b><b style=color:#2F2C41>0</b><b style=color:#583B51>0</b><b style=color:#563C53>0</b><b style=color:#302A40>0</b><b style=color:#2E2C42>1</b><b style=color:#302D43>1</b><b style=color:#332E45>0</b><b style=color:#342F46>0</b><b style=color:#342F47>1</b><b style=color:#353047>01</b><b style=color:#342F47>1</b><b style=color:#332F46>1</b><b style=color:#322E45>10</b><b style=color:#332E45>0</b><b style=color:#322E44>0</b><b style=color:#302C43>0</b><b style=color:#2F2B42>011111001</b><b style=color:#2E2A41>0</b><b style=color:#2E2B42>0</b><b style=color:#322E45>1</b><b style=color:#3C364F>1</b><b style=color:#4B425A>1</b><b style=color:#5A455E>1</b><b style=color:#6F465D>1</b><b style=color:#8B5066>0</b><b style=color:#6A4E5E>0</b><b style=color:#171718>0</b><b style=color:#000000>00110111001</b>
-</div>
-<div class="line">
-<b style=color:#000000>0011001111001010111111000100010</b><b style=color:#040404>0</b><b style=color:#323041>0</b><b style=color:#242137>1</b><b style=color:#2B283E>1</b><b style=color:#2C293E>0</b><b style=color:#2D2A3F>0</b><b style=color:#2E2A3F>1</b><b style=color:#2E2B40>1</b><b style=color:#2F2B41>01</b><b style=color:#302B42>1</b><b style=color:#2F2B42>0</b><b style=color:#2F2B41>1</b><b style=color:#2D2A40>1</b><b style=color:#2A273D>1</b><b style=color:#28243B>0</b><b style=color:#27243A>1</b><b style=color:#29253C>1</b><b style=color:#29263C>01</b><b style=color:#29263B>1</b><b style=color:#2A273C>10</b><b style=color:#2A273B>00</b><b style=color:#2A273C>1</b><b style=color:#2A273B>0</b><b style=color:#2B283D>001</b><b style=color:#2A273C>0</b><b style=color:#2A263C>1</b><b style=color:#2B283E>1</b><b style=color:#332F48>1</b><b style=color:#453E56>0</b><b style=color:#614E65>0</b><b style=color:#302F32>0</b><b style=color:#000000>111100000101</b>
-</div>
-<div class="line">
-<b style=color:#000000>010011100100001000010111000101</b><b style=color:#060606>0</b><b style=color:#2A2837>1</b><b style=color:#2B273D>0</b><b style=color:#2A273C>0</b><b style=color:#2B283D>1</b><b style=color:#2C293E>0</b><b style=color:#2B283D>0</b><b style=color:#2A273C>1</b><b style=color:#2A283D>0</b><b style=color:#2B273D>1</b><b style=color:#2A273C>0</b><b style=color:#29263C>1</b><b style=color:#262339>0</b><b style=color:#232035>1</b><b style=color:#2F2A40>1</b><b style=color:#463B55>1</b><b style=color:#5D4F6A>0</b><b style=color:#655471>0</b><b style=color:#584A65>0</b><b style=color:#463D56>1</b><b style=color:#393249>1</b><b style=color:#2A243A>1</b><b style=color:#242136>0</b><b style=color:#262338>0</b><b style=color:#262337>1</b><b style=color:#252237>1</b><b style=color:#262337>11</b><b style=color:#262336>001</b><b style=color:#262337>1</b><b style=color:#262339>0</b><b style=color:#27243A>1</b><b style=color:#27243B>1</b><b style=color:#29263C>1</b><b style=color:#353249>0</b><b style=color:#3C3748>0</b><b style=color:#232126>0</b><b style=color:#000000>00100111011</b>
-</div>
-<div class="line">
-<b style=color:#000000>100011100100011001011001111101</b><b style=color:#292733>0</b><b style=color:#302C44>0</b><b style=color:#2B283D>1</b><b style=color:#2D2A3F>1</b><b style=color:#2C293E>1</b><b style=color:#2B283D>11</b><b style=color:#29263B>0</b><b style=color:#28253A>1</b><b style=color:#262338>0</b><b style=color:#262337>0</b><b style=color:#221F34>1</b><b style=color:#363045>1</b><b style=color:#84728F>1</b><b style=color:#B39CBD>0</b><b style=color:#CAB1D1>1</b><b style=color:#BDA8C8>1</b><b style=color:#9284A7>0</b><b style=color:#373049>0</b><b style=color:#161226>1</b><b style=color:#2D293E>1</b><b style=color:#77748C>1</b><b style=color:#4E475E>0</b><b style=color:#252035>1</b><b style=color:#211E32>0</b><b style=color:#221F33>1</b><b style=color:#221F32>0</b><b style=color:#232033>0</b><b style=color:#221F32>001</b><b style=color:#232033>0</b><b style=color:#242135>1</b><b style=color:#242136>0</b><b style=color:#252237>1</b><b style=color:#2F2B40>1</b><b style=color:#2D293F>1</b><b style=color:#29253C>0</b><b style=color:#443F54>0</b><b style=color:#2C2A30>0</b><b style=color:#000000>1101011010</b>
-</div>
-<div class="line">
-<b style=color:#000000>00100000011110001111010010111</b><b style=color:#1B1A1F>1</b><b style=color:#3A364D>1</b><b style=color:#2A263D>1</b><b style=color:#2C283E>0</b><b style=color:#2C293E>10</b><b style=color:#2A273C>00</b><b style=color:#282539>0</b><b style=color:#262338>1</b><b style=color:#252236>1</b><b style=color:#211E32>0</b><b style=color:#2F2A3E>0</b><b style=color:#B39FBC>0</b><b style=color:#E1CBE7>0</b><b style=color:#E4CEE9>1</b><b style=color:#C8B6CF>1</b><b style=color:#6A6584>1</b><b style=color:#4C4966>1</b><b style=color:#110E22>0</b><b style=color:#080517>1</b><b style=color:#181629>1</b><b style=color:#73768B>0</b><b style=color:#49465D>0</b><b style=color:#3E354A>0</b><b style=color:#221E31>1</b><b style=color:#1F1C2F>1</b><b style=color:#201D30>1110</b><b style=color:#1F1C2F>1</b><b style=color:#201D30>0</b><b style=color:#201E30>0</b><b style=color:#252236>0</b><b style=color:#312B3E>0</b><b style=color:#2A2439>1</b><b style=color:#615773>1</b><b style=color:#6C5F7D>1</b><b style=color:#29243B>1</b><b style=color:#474255>0</b><b style=color:#1D1D1F>0</b><b style=color:#000000>110010110</b>
-</div>
-<div class="line">
-<b style=color:#000000>1010110000111110110110100101</b><b style=color:#09090A>0</b><b style=color:#423E53>0</b><b style=color:#302C44>1</b><b style=color:#29263C>0</b><b style=color:#2A263C>1</b><b style=color:#2B283D>1</b><b style=color:#29263B>1</b><b style=color:#272438>1</b><b style=color:#262337>0</b><b style=color:#252236>1</b><b style=color:#242135>0</b><b style=color:#232033>0</b><b style=color:#1D1B2E>1</b><b style=color:#4B4358>0</b><b style=color:#E9D7EC>0</b><b style=color:#E8D6EA>1</b><b style=color:#F0DEF2>1</b><b style=color:#A194A6>1</b><b style=color:#0C081B>1</b><b style=color:#070416>1</b><b style=color:#070516>00</b><b style=color:#070416>0</b><b style=color:#080516>0</b><b style=color:#181427>0</b><b style=color:#4D4055>0</b><b style=color:#3E354B>1</b><b style=color:#191629>0</b><b style=color:#1C192C>00</b><b style=color:#1D1A2D>010</b><b style=color:#1E1B2E>0</b><b style=color:#1F1C2F>0</b><b style=color:#352E42>0</b><b style=color:#151124>0</b><b style=color:#01000F>0</b><b style=color:#5F5D6E>1</b><b style=color:#9B90A6>0</b><b style=color:#7C6A82>1</b><b style=color:#312C42>0</b><b style=color:#434049>0</b><b style=color:#000000>100011101</b>
-</div>
-<div class="line">
-<b style=color:#000000>1101010111001101011110101010</b><b style=color:#1F1D24>0</b><b style=color:#3B354E>1</b><b style=color:#29253C>0</b><b style=color:#2B283E>1</b><b style=color:#2A273C>0</b><b style=color:#28253A>1</b><b style=color:#262338>0</b><b style=color:#242134>0</b><b style=color:#221F33>1</b><b style=color:#211E32>1</b><b style=color:#211E31>00</b><b style=color:#201D30>1</b><b style=color:#232034>1</b><b style=color:#A599AB>0</b><b style=color:#F3E1F3>0</b><b style=color:#F2E1F3>0</b><b style=color:#CABCCC>1</b><b style=color:#342738>0</b><b style=color:#26192B>0</b><b style=color:#241C2E>0</b><b style=color:#342E40>0</b><b style=color:#20172A>0</b><b style=color:#2F2032>0</b><b style=color:#402E3F>1</b><b style=color:#876F86>0</b><b style=color:#53455D>0</b><b style=color:#151225>1</b><b style=color:#19172A>1</b><b style=color:#1A172A>100</b><b style=color:#1B182B>0</b><b style=color:#1A172A>1</b><b style=color:#2A2639>0</b><b style=color:#41394B>0</b><b style=color:#00000F>0</b><b style=color:#030212>0</b><b style=color:#040213>0</b><b style=color:#403647>0</b><b style=color:#D2BDCD>0</b><b style=color:#473C53>0</b><b style=color:#464350>1</b><b style=color:#000000>110101000</b>
-</div>
-<div class="line">
-<b style=color:#000000>1000110111011011011110100111</b><b style=color:#2A2833>0</b><b style=color:#2D2941>0</b><b style=color:#262339>1</b><b style=color:#2A273D>0</b><b style=color:#2A273C>1</b><b style=color:#27243A>0</b><b style=color:#242136>0</b><b style=color:#211E31>0</b><b style=color:#201D31>1</b><b style=color:#201D30>111</b><b style=color:#1F1C2F>1</b><b style=color:#1C1A2C>0</b><b style=color:#211E32>1</b><b style=color:#786F81>1</b><b style=color:#CBBCCD>0</b><b style=color:#EFDFEF>1</b><b style=color:#C3B3C0>0</b><b style=color:#7C626D>0</b><b style=color:#6A4B56>0</b><b style=color:#684957>1</b><b style=color:#60404E>0</b><b style=color:#6E4E5C>0</b><b style=color:#907386>1</b><b style=color:#987D97>0</b><b style=color:#332C40>0</b><b style=color:#1A182B>0</b><b style=color:#211D31>0</b><b style=color:#232033>1</b><b style=color:#231F33>0</b><b style=color:#221F33>0</b><b style=color:#211E32>1</b><b style=color:#1D1A2D>1</b><b style=color:#2C283B>1</b><b style=color:#7D7184>1</b><b style=color:#443644>1</b><b style=color:#382A38>1</b><b style=color:#301D2D>0</b><b style=color:#7B6979>1</b><b style=color:#E6D3E2>1</b><b style=color:#473D52>0</b><b style=color:#433E51>1</b><b style=color:#161617>0</b><b style=color:#000000>10101111</b>
-</div>
-<div class="line">
-<b style=color:#000000>1010100010001100000000101000</b><b style=color:#282631>0</b><b style=color:#242036>1</b><b style=color:#201D30>0</b><b style=color:#242136>0</b><b style=color:#28253A>11</b><b style=color:#242134>0</b><b style=color:#201D30>1</b><b style=color:#1F1C2F>01010</b><b style=color:#1D1A2D>1</b><b style=color:#1B182B>1</b><b style=color:#151226>0</b><b style=color:#252234>1</b><b style=color:#4B4456>1</b><b style=color:#716778>0</b><b style=color:#817686>1</b><b style=color:#76697A>0</b><b style=color:#6A596C>0</b><b style=color:#635366>0</b><b style=color:#5E4F65>0</b><b style=color:#4C4057>1</b><b style=color:#2E293E>0</b><b style=color:#232034>1</b><b style=color:#272438>0</b><b style=color:#282539>10</b><b style=color:#272438>1</b><b style=color:#211E32>1</b><b style=color:#1B182A>1</b><b style=color:#211E31>1</b><b style=color:#201D31>0</b><b style=color:#4F475B>0</b><b style=color:#6F5E71>1</b><b style=color:#6F576A>0</b><b style=color:#887385>0</b><b style=color:#C5B6CA>0</b><b style=color:#82768A>0</b><b style=color:#231F34>0</b><b style=color:#3D374E>1</b><b style=color:#3C3942>0</b><b style=color:#000000>11000111</b>
-</div>
-<div class="line">
-<b style=color:#000000>0100110010110011011001011001</b><b style=color:#1D1C22>1</b><b style=color:#252236>0</b><b style=color:#1B182B>0</b><b style=color:#1D1A2D>1</b><b style=color:#201D30>1</b><b style=color:#221F33>1</b><b style=color:#221F32>1</b><b style=color:#201D31>1</b><b style=color:#201D30>01</b><b style=color:#1F1C2F>0</b><b style=color:#1E1B2E>01</b><b style=color:#1D1A2D>11</b><b style=color:#1C192C>0</b><b style=color:#1B182C>1</b><b style=color:#1A172A>1</b><b style=color:#191529>0</b><b style=color:#1B182B>0</b><b style=color:#1F1C2F>0</b><b style=color:#211E31>0</b><b style=color:#211D32>1</b><b style=color:#201C31>0</b><b style=color:#211D31>0</b><b style=color:#211E31>0</b><b style=color:#232033>0</b><b style=color:#221F32>1</b><b style=color:#232033>11</b><b style=color:#221F32>0</b><b style=color:#1F1C2F>1</b><b style=color:#1D1A2D>0</b><b style=color:#232033>1</b><b style=color:#232034>1</b><b style=color:#1F1C30>0</b><b style=color:#242135>1</b><b style=color:#312D41>0</b><b style=color:#3F394F>0</b><b style=color:#353044>0</b><b style=color:#211E32>1</b><b style=color:#242135>0</b><b style=color:#373249>0</b><b style=color:#534E5D>0</b><b style=color:#000000>01001000</b>
-</div>
-<div class="line">
-<b style=color:#000000>0100111001011010111001100100</b><b style=color:#16151B>1</b><b style=color:#232033>1</b><b style=color:#1A172B>1</b><b style=color:#191629>11</b><b style=color:#1A172A>1</b><b style=color:#1B182B>0</b><b style=color:#1C192C>0</b><b style=color:#1E1B2E>010</b><b style=color:#1D1A2C>010</b><b style=color:#1D1A2D>011</b><b style=color:#1E1B2E>0</b><b style=color:#1F1C2E>1</b><b style=color:#201D30>0</b><b style=color:#211D30>1</b><b style=color:#211C30>010</b><b style=color:#1F1B2F>0</b><b style=color:#1E1A2D>0</b><b style=color:#1D1A2D>01</b><b style=color:#1C192C>10</b><b style=color:#1B182B>1</b><b style=color:#19162A>1</b><b style=color:#191629>0</b><b style=color:#1C192C>1</b><b style=color:#1D1A2D>01</b><b style=color:#1D1B2E>1</b><b style=color:#1F1C2F>1</b><b style=color:#211D31>1</b><b style=color:#232035>1</b><b style=color:#272338>0</b><b style=color:#282439>1</b><b style=color:#403850>0</b><b style=color:#564F5D>0</b><b style=color:#000000>00110011</b>
-</div>
-<div class="line">
-<b style=color:#000000>11010000110010110000011101</b><b style=color:#0C0B0E>0</b><b style=color:#1A1823>0</b><b style=color:#1A1729>0</b><b style=color:#171427>0</b><b style=color:#1B182B>1</b><b style=color:#1D1A2D>0</b><b style=color:#1A172A>0</b><b style=color:#181529>0</b><b style=color:#181528>01</b><b style=color:#191628>0</b><b style=color:#191629>0</b><b style=color:#1A172A>10111</b><b style=color:#1B182A>1</b><b style=color:#1B182B>0010</b><b style=color:#1A172A>0100000110</b><b style=color:#191629>110</b><b style=color:#1A172A>0</b><b style=color:#1B182B>1</b><b style=color:#1C192C>11</b><b style=color:#1D1A2D>0</b><b style=color:#201D30>0</b><b style=color:#242035>00</b><b style=color:#2A243B>0</b><b style=color:#534A61>1</b><b style=color:#2F2C31>1</b><b style=color:#000000>11001000</b>
-</div>
-<div class="line">
-<b style=color:#000000>000000110100000010000110</b><b style=color:#100F12>1</b><b style=color:#24222E>0</b><b style=color:#282538>1</b><b style=color:#1F1C30>1</b><b style=color:#191629>0</b><b style=color:#181528>0</b><b style=color:#171427>1</b><b style=color:#191629>1</b><b style=color:#1C192C>0</b><b style=color:#1E1B2D>1</b><b style=color:#1D1A2D>0</b><b style=color:#1B182B>1</b><b style=color:#191629>0</b><b style=color:#171427>1</b><b style=color:#161326>010</b><b style=color:#151225>1</b><b style=color:#161326>1</b><b style=color:#151223>1</b><b style=color:#141123>01</b><b style=color:#141122>001</b><b style=color:#141123>11</b><b style=color:#141122>0</b><b style=color:#141123>1</b><b style=color:#151223>0</b><b style=color:#161324>1</b><b style=color:#161325>0</b><b style=color:#171426>1</b><b style=color:#171428>0</b><b style=color:#171427>11</b><b style=color:#181528>00</b><b style=color:#191628>0</b><b style=color:#191629>1</b><b style=color:#1A172A>0</b><b style=color:#1D1A2D>1</b><b style=color:#201D31>0</b><b style=color:#211E33>0</b><b style=color:#2B263C>1</b><b style=color:#423C4D>1</b><b style=color:#2A282C>1</b><b style=color:#000000>011010011</b>
-</div>
-<div class="line">
-<b style=color:#000000>1111100111010101010000</b><b style=color:#17161C>0</b><b style=color:#2C2938>0</b><b style=color:#2F2B40>0</b><b style=color:#29253A>0</b><b style=color:#242135>0</b><b style=color:#221F32>0</b><b style=color:#1D1A2D>0</b><b style=color:#191629>1</b><b style=color:#161326>0</b><b style=color:#151224>0</b><b style=color:#151223>0</b><b style=color:#161325>1</b><b style=color:#1A1728>1</b><b style=color:#1E1B2D>1</b><b style=color:#1F1C2F>0</b><b style=color:#1D1A2D>1</b><b style=color:#1B182A>0</b><b style=color:#191628>1</b><b style=color:#171427>0</b><b style=color:#151226>0</b><b style=color:#131023>0</b><b style=color:#120F21>1</b><b style=color:#120F20>0</b><b style=color:#110E1F>11</b><b style=color:#100D1E>0110</b><b style=color:#110E1F>1100</b><b style=color:#120F20>0</b><b style=color:#120F21>1</b><b style=color:#131022>01</b><b style=color:#141122>1</b><b style=color:#141123>1</b><b style=color:#151223>1</b><b style=color:#151224>0</b><b style=color:#151225>1</b><b style=color:#161326>0</b><b style=color:#1A162B>0</b><b style=color:#242035>0</b><b style=color:#343041>1</b><b style=color:#38343D>0</b><b style=color:#141414>1</b><b style=color:#000000>1100000111</b>
-</div>
-<div class="line">
-<b style=color:#000000>11001001010100101110</b><b style=color:#0E0D10>1</b><b style=color:#2C2837>0</b><b style=color:#332E44>0</b><b style=color:#2D283F>1</b><b style=color:#29263C>1</b><b style=color:#272439>0</b><b style=color:#242134>0</b><b style=color:#221F32>1</b><b style=color:#1E1B2E>0</b><b style=color:#191629>0</b><b style=color:#161326>0</b><b style=color:#151225>11</b><b style=color:#141123>1</b><b style=color:#131021>10</b><b style=color:#151223>1</b><b style=color:#161324>1</b><b style=color:#181527>1</b><b style=color:#1B182A>1</b><b style=color:#1B182B>00</b><b style=color:#1A1729>1</b><b style=color:#171426>1</b><b style=color:#141224>0</b><b style=color:#131021>1</b><b style=color:#120F20>0</b><b style=color:#110E20>0</b><b style=color:#110E1F>1</b><b style=color:#100D1E>00</b><b style=color:#110E1F>1100000</b><b style=color:#120F20>0</b><b style=color:#120F21>1</b><b style=color:#131022>01</b><b style=color:#120F22>1</b><b style=color:#191629>1</b><b style=color:#272436>1</b><b style=color:#34303E>1</b><b style=color:#2C2A30>1</b><b style=color:#121213>1</b><b style=color:#000000>110110011100</b>
-</div>
-<div class="line">
-<b style=color:#000000>0011111110110001010</b><b style=color:#23202A>1</b><b style=color:#312C41>0</b><b style=color:#2D283F>0</b><b style=color:#2A263C>0</b><b style=color:#2A263B>1</b><b style=color:#28253A>0</b><b style=color:#262338>1</b><b style=color:#221F33>1</b><b style=color:#211E31>1</b><b style=color:#201D30>1</b><b style=color:#1C192C>0</b><b style=color:#181528>1</b><b style=color:#161326>1</b><b style=color:#151225>1</b><b style=color:#151224>0</b><b style=color:#141123>1</b><b style=color:#141122>1</b><b style=color:#131021>0</b><b style=color:#120F20>1</b><b style=color:#110E1F>001</b><b style=color:#110E20>1</b><b style=color:#120F20>1</b><b style=color:#131022>11</b><b style=color:#131021>1</b><b style=color:#121021>1</b><b style=color:#120F21>1</b><b style=color:#120F20>000100100100</b><b style=color:#131022>0</b><b style=color:#151125>0</b><b style=color:#292637>0</b><b style=color:#2B2931>1</b><b style=color:#18181A>1</b><b style=color:#000000>010111110110011</b>
-</div>
-<div class="line">
-<b style=color:#000000>11011111100000101</b><b style=color:#020202>0</b><b style=color:#25222E>1</b><b style=color:#2E2A3F>1</b><b style=color:#29253B>0</b><b style=color:#28253A>0</b><b style=color:#272438>1</b><b style=color:#282539>0</b><b style=color:#252236>0</b><b style=color:#221F32>0</b><b style=color:#211E31>01</b><b style=color:#201D30>0</b><b style=color:#1E1B2E>0</b><b style=color:#1A172A>0</b><b style=color:#171427>0</b><b style=color:#151225>1</b><b style=color:#141124>1</b><b style=color:#141123>1</b><b style=color:#141122>11</b><b style=color:#131021>0</b><b style=color:#121020>0</b><b style=color:#120F20>1</b><b style=color:#100D1E>0</b><b style=color:#0F0C1D>1</b><b style=color:#0E0B1B>1</b><b style=color:#0D0A1B>0</b><b style=color:#0C091A>0</b><b style=color:#0B0819>100</b><b style=color:#0B0818>0</b><b style=color:#0B0819>0</b><b style=color:#0C0919>1</b><b style=color:#0C091A>1</b><b style=color:#0D0A1A>1</b><b style=color:#0D0B1B>0</b><b style=color:#0E0B1C>010</b><b style=color:#0F0C1D>1</b><b style=color:#100D1E>1</b><b style=color:#120F20>0</b><b style=color:#161325>0</b><b style=color:#272337>1</b><b style=color:#423E49>0</b><b style=color:#000000>01111000110111000</b>
-</div>
-<div class="line">
-<b style=color:#000000>10000</b><b style=color:#050505>1</b><b style=color:#0D0C0F>0</b><b style=color:#141217>1</b><b style=color:#131216>1</b><b style=color:#0C0C0E>0</b><b style=color:#000000>0001101</b><b style=color:#24222D>1</b><b style=color:#252236>0</b><b style=color:#232033>0</b><b style=color:#242135>1</b><b style=color:#232033>0</b><b style=color:#221F32>00</b><b style=color:#1F1C2F>0</b><b style=color:#1C192C>0</b><b style=color:#1C1A2D>1</b><b style=color:#1D1B2E>01</b><b style=color:#1E1B2E>1</b><b style=color:#1B182B>1</b><b style=color:#181528>0</b><b style=color:#151224>1</b><b style=color:#141123>1</b><b style=color:#131022>1</b><b style=color:#131021>1010</b><b style=color:#120F20>0</b><b style=color:#110E1F>0</b><b style=color:#100D1E>0</b><b style=color:#0E0B1D>1</b><b style=color:#0E0B1C>1</b><b style=color:#0D0A1B>1</b><b style=color:#0B0819>00</b><b style=color:#0A0718>11</b><b style=color:#0A0717>1</b><b style=color:#0A0817>1</b><b style=color:#0A0818>0</b><b style=color:#0B0819>10</b><b style=color:#0D0A1B>0</b><b style=color:#0E0B1D>0</b><b style=color:#100D1F>0</b><b style=color:#120F21>1</b><b style=color:#151226>1</b><b style=color:#191629>1</b><b style=color:#1E1B2E>1</b><b style=color:#29253A>1</b><b style=color:#524D5D>0</b><b style=color:#070707>1</b><b style=color:#000000>0011101100000101</b>
-</div>
-<div class="line">
-<b style=color:#000000>110</b><b style=color:#050506>0</b><b style=color:#191821>0</b><b style=color:#1F1D2C>1</b><b style=color:#201D2F>0</b><b style=color:#211E31>1</b><b style=color:#242134>0</b><b style=color:#282536>0</b><b style=color:#26242E>1</b><b style=color:#0C0B0C>1</b><b style=color:#000000>1110</b><b style=color:#131217>1</b><b style=color:#211F32>0</b><b style=color:#19182A>1</b><b style=color:#1B1A2C>1</b><b style=color:#1B1A2D>1</b><b style=color:#1B1A2C>1</b><b style=color:#1A192B>0</b><b style=color:#1A182A>1</b><b style=color:#171528>1</b><b style=color:#151326>0</b><b style=color:#161528>1</b><b style=color:#18182A>0</b><b style=color:#19182A>0</b><b style=color:#1A182B>1</b><b style=color:#19182A>0</b><b style=color:#181729>1</b><b style=color:#161527>1</b><b style=color:#141325>1</b><b style=color:#131224>1</b><b style=color:#131123>1</b><b style=color:#131023>01</b><b style=color:#120F22>11</b><b style=color:#120F21>1</b><b style=color:#110E21>0</b><b style=color:#100D1F>1</b><b style=color:#0F0C1E>1</b><b style=color:#0E0B1D>1</b><b style=color:#0D0A1C>1</b><b style=color:#0D091B>1</b><b style=color:#0C091A>100</b><b style=color:#0C0A1A>00</b><b style=color:#0D0A1B>1</b><b style=color:#0E0C1D>0</b><b style=color:#100E20>0</b><b style=color:#131023>1</b><b style=color:#161427>0</b><b style=color:#1B192D>0</b><b style=color:#1D1B30>1</b><b style=color:#1A192C>0</b><b style=color:#161427>1</b><b style=color:#1A172D>0</b><b style=color:#5E5870>1</b><b style=color:#353337>1</b><b style=color:#000000>1101010011111011</b>
-</div>
-<div class="line">
-<b style=color:#000000>10</b><b style=color:#010101>1</b><b style=color:#24222D>0</b><b style=color:#1D1A2C>1</b><b style=color:#141224>1</b><b style=color:#111021>0</b><b style=color:#100F20>0</b><b style=color:#121121>1</b><b style=color:#141224>1</b><b style=color:#211D30>0</b><b style=color:#332F36>0</b><b style=color:#000000>0100</b><b style=color:#1F1E29>0</b><b style=color:#151326>1</b><b style=color:#151426>0</b><b style=color:#181729>101</b><b style=color:#171628>0</b><b style=color:#151427>0</b><b style=color:#131224>1</b><b style=color:#100F21>0</b><b style=color:#0F0E20>1</b><b style=color:#131224>1</b><b style=color:#181628>1</b><b style=color:#19172A>1</b><b style=color:#181729>1</b><b style=color:#171628>01</b><b style=color:#161527>1</b><b style=color:#151426>1</b><b style=color:#141225>0</b><b style=color:#141124>10</b><b style=color:#131023>0</b><b style=color:#121023>0</b><b style=color:#121022>0</b><b style=color:#120F21>1</b><b style=color:#110F21>01</b><b style=color:#100D20>0</b><b style=color:#0F0D1F>0</b><b style=color:#0E0C1D>0</b><b style=color:#0E0C1C>1</b><b style=color:#0E0B1C>0</b><b style=color:#0E0B1D>1</b><b style=color:#0E0C1D>0</b><b style=color:#0E0C1E>1</b><b style=color:#0E0D1E>1</b><b style=color:#100F20>1</b><b style=color:#141324>1</b><b style=color:#19182A>1</b><b style=color:#1F1D31>1</b><b style=color:#232135>0</b><b style=color:#1A192B>0</b><b style=color:#121123>0</b><b style=color:#141226>1</b><b style=color:#1A182D>0</b><b style=color:#534E68>0</b><b style=color:#55525B>1</b><b style=color:#000000>0111000111010100</b>
-</div>
-<div class="line">
-<b style=color:#000000>10</b><b style=color:#09090A>1</b><b style=color:#232130>1</b><b style=color:#110F20>0</b><b style=color:#0C0B1A>1</b><b style=color:#0D0C1B>1</b><b style=color:#1B1A26>0</b><b style=color:#191826>0</b><b style=color:#1E1D2C>1</b><b style=color:#2B2936>0</b><b style=color:#1D1C1E>1</b><b style=color:#000000>1011</b><b style=color:#1F1E2A>1</b><b style=color:#0E0E1E>0</b><b style=color:#100F20>1</b><b style=color:#151425>0</b><b style=color:#171628>1</b><b style=color:#181729>1</b><b style=color:#171628>0</b><b style=color:#161527>1</b><b style=color:#141325>1</b><b style=color:#111021>0</b><b style=color:#0E0D1E>1</b><b style=color:#0C0B1C>1</b><b style=color:#0E0C1D>1</b><b style=color:#131224>1</b><b style=color:#171629>10</b><b style=color:#18172A>1</b><b style=color:#171629>1</b><b style=color:#161527>01</b><b style=color:#141325>1</b><b style=color:#151325>1</b><b style=color:#141224>1</b><b style=color:#141124>1</b><b style=color:#121122>0</b><b style=color:#121021>1</b><b style=color:#121022>1</b><b style=color:#120F21>0</b><b style=color:#100F20>01</b><b style=color:#0F0E1F>0</b><b style=color:#0F0E1E>0</b><b style=color:#0F0D1F>1</b><b style=color:#0F0C1F>0</b><b style=color:#0F0D1F>0</b><b style=color:#0F0E20>1</b><b style=color:#101022>0</b><b style=color:#151427>1</b><b style=color:#1A192B>1</b><b style=color:#1C1B2D>1</b><b style=color:#1A192B>1</b><b style=color:#141325>0</b><b style=color:#100F21>1</b><b style=color:#121123>1</b><b style=color:#161528>1</b><b style=color:#1F1D32>1</b><b style=color:#4D4963>0</b><b style=color:#62606A>1</b><b style=color:#000000>1111101000010100</b>
-</div>
-<div class="line">
-<b style=color:#000000>000</b><b style=color:#201E2A>1</b><b style=color:#0F0D1D>1</b><b style=color:#0A0919>1</b><b style=color:#131121>1</b><b style=color:#333138>0</b><b style=color:#101011>0</b><b style=color:#0C0C0C>0</b><b style=color:#000000>010011</b><b style=color:#181720>0</b><b style=color:#0D0C1D>0</b><b style=color:#0C0C1C>1</b><b style=color:#100F1F>0</b><b style=color:#131222>1</b><b style=color:#151426>1</b><b style=color:#171628>00</b><b style=color:#161527>1</b><b style=color:#141325>1</b><b style=color:#121123>1</b><b style=color:#0F0E1F>1</b><b style=color:#0C0B1B>1</b><b style=color:#0A0919>0</b><b style=color:#0A091B>0</b><b style=color:#0C0B1E>0</b><b style=color:#100F21>1</b><b style=color:#121123>1</b><b style=color:#131224>001</b><b style=color:#161427>1</b><b style=color:#141325>0</b><b style=color:#141224>0</b><b style=color:#131123>10</b><b style=color:#121022>0</b><b style=color:#111021>1</b><b style=color:#100F20>0</b><b style=color:#110F21>0</b><b style=color:#110F20>0</b><b style=color:#100E20>0</b><b style=color:#100F21>1</b><b style=color:#100D20>1</b><b style=color:#100E21>0</b><b style=color:#121123>0</b><b style=color:#151527>1</b><b style=color:#18172B>1</b><b style=color:#171629>0</b><b style=color:#110F22>0</b><b style=color:#0E0C1E>0</b><b style=color:#0F0E20>1</b><b style=color:#111022>1</b><b style=color:#131225>1</b><b style=color:#1A192D>0</b><b style=color:#222036>1</b><b style=color:#58536D>1</b><b style=color:#54525A>1</b><b style=color:#000000>0010100011111100</b>
-</div>
-<div class="line">
-<b style=color:#000000>010</b><b style=color:#1E1D24>1</b><b style=color:#161323>1</b><b style=color:#090818>0</b><b style=color:#0B0A19>1</b><b style=color:#181725>0</b><b style=color:#1F1F24>1</b><b style=color:#000000>1111100</b><b style=color:#15141B>1</b><b style=color:#0C0B1C>1</b><b style=color:#070918>0</b><b style=color:#0B0B1B>1</b><b style=color:#0D0C1C>1</b><b style=color:#0E0D1F>0</b><b style=color:#111022>1</b><b style=color:#131224>0</b><b style=color:#141325>01</b><b style=color:#131224>0</b><b style=color:#121022>1</b><b style=color:#100F20>0</b><b style=color:#0D0C1E>0</b><b style=color:#0B0A1B>1</b><b style=color:#0A091A>0</b><b style=color:#090819>0</b><b style=color:#080718>0</b><b style=color:#0A091B>1</b><b style=color:#0C0B1D>0</b><b style=color:#111022>1</b><b style=color:#151426>1</b><b style=color:#0E0E1F>0</b><b style=color:#100E1F>1</b><b style=color:#131224>0</b><b style=color:#121123>1</b><b style=color:#121022>0</b><b style=color:#110F21>11</b><b style=color:#110F20>0</b><b style=color:#120F20>1</b><b style=color:#110F21>00</b><b style=color:#0F0E20>10</b><b style=color:#100F21>1</b><b style=color:#131224>0</b><b style=color:#111022>1</b><b style=color:#0C0B1C>0</b><b style=color:#0E0C1E>1</b><b style=color:#0F0E20>0</b><b style=color:#111022>01</b><b style=color:#151326>1</b><b style=color:#1C1C2F>1</b><b style=color:#25233A>1</b><b style=color:#6B657C>0</b><b style=color:#323233>1</b><b style=color:#000000>1101011011011111</b>
-</div>
-<div class="line">
-<b style=color:#000000>110</b><b style=color:#080809>0</b><b style=color:#23212D>0</b><b style=color:#131122>1</b><b style=color:#060715>1</b><b style=color:#060916>0</b><b style=color:#141624>0</b><b style=color:#1F1F29>0</b><b style=color:#121215>1</b><b style=color:#050505>1</b><b style=color:#000000>1010</b><b style=color:#121116>1</b><b style=color:#0C0C1D>0</b><b style=color:#040617>0</b><b style=color:#060618>1</b><b style=color:#080819>1</b><b style=color:#09081A>1</b><b style=color:#0A0A1C>0</b><b style=color:#0D0C1E>00</b><b style=color:#0E0D1F>1</b><b style=color:#100E21>1</b><b style=color:#0F0E20>0</b><b style=color:#0F0E1F>1</b><b style=color:#0D0C1E>0</b><b style=color:#0D0C1D>0</b><b style=color:#0C0B1C>1</b><b style=color:#0B0A1C>0</b><b style=color:#0B091C>0</b><b style=color:#0A0A1C>0</b><b style=color:#0E0E20>0</b><b style=color:#121123>0</b><b style=color:#0D0C1E>1</b><b style=color:#060515>0</b><b style=color:#080718>0</b><b style=color:#100F21>0</b><b style=color:#121123>1</b><b style=color:#111022>00</b><b style=color:#100F21>10</b><b style=color:#111020>1</b><b style=color:#110F20>00</b><b style=color:#100F20>1</b><b style=color:#0F0E1F>1</b><b style=color:#0E0D1E>0</b><b style=color:#0F0E1F>1</b><b style=color:#0D0C1E>0</b><b style=color:#0E0D1F>0</b><b style=color:#0F0E20>1</b><b style=color:#100F21>1</b><b style=color:#111022>1</b><b style=color:#121123>0</b><b style=color:#161527>1</b><b style=color:#1D1D30>1</b><b style=color:#2B2941>0</b><b style=color:#737082>1</b><b style=color:#101010>0</b><b style=color:#000000>0000101110010011</b>
-</div>
-<div class="line">
-<b style=color:#000000>1011</b><b style=color:#0A0A0B>1</b><b style=color:#23212E>0</b><b style=color:#111121>0</b><b style=color:#040515>1</b><b style=color:#030413>0</b><b style=color:#080819>0</b><b style=color:#151423>0</b><b style=color:#1B1A27>1</b><b style=color:#181720>0</b><b style=color:#121215>1</b><b style=color:#080809>1</b><b style=color:#000000>0</b><b style=color:#0F0F11>1</b><b style=color:#131425>0</b><b style=color:#060619>0</b><b style=color:#070517>0</b><b style=color:#050517>111</b><b style=color:#060618>1</b><b style=color:#070618>1</b><b style=color:#080719>1</b><b style=color:#09081A>00</b><b style=color:#090819>0</b><b style=color:#090818>0</b><b style=color:#090819>1</b><b style=color:#080819>1</b><b style=color:#09081A>11</b><b style=color:#0C0B1D>1</b><b style=color:#0E0D1F>0</b><b style=color:#080819>1</b><b style=color:#020213>1</b><b style=color:#010112>0</b><b style=color:#010213>0</b><b style=color:#050516>0</b><b style=color:#0F0F21>1</b><b style=color:#111023>1</b><b style=color:#111022>110</b><b style=color:#111021>0</b><b style=color:#111020>0</b><b style=color:#100F20>1</b><b style=color:#111021>0</b><b style=color:#110F21>0</b><b style=color:#100F20>11</b><b style=color:#0E0D1F>10</b><b style=color:#100F21>1</b><b style=color:#111022>0</b><b style=color:#121123>1</b><b style=color:#131224>1</b><b style=color:#18162A>1</b><b style=color:#1D1B30>0</b><b style=color:#3F3B55>0</b><b style=color:#5F5D67>0</b><b style=color:#000000>11111011000010101</b>
-</div>
-<div class="line">
-<b style=color:#000000>10001</b><b style=color:#080809>1</b><b style=color:#1E1D26>1</b><b style=color:#161525>0</b><b style=color:#0A0919>0</b><b style=color:#020212>1</b><b style=color:#000211>0</b><b style=color:#010313>0</b><b style=color:#060818>1</b><b style=color:#0E0F1F>0</b><b style=color:#131421>0</b><b style=color:#12131E>0</b><b style=color:#11121C>0</b><b style=color:#141626>1</b><b style=color:#0C0D1E>0</b><b style=color:#080718>0</b><b style=color:#040517>0</b><b style=color:#040417>1</b><b style=color:#040415>0</b><b style=color:#040416>0</b><b style=color:#040316>1</b><b style=color:#040315>0</b><b style=color:#040316>0</b><b style=color:#050315>0</b><b style=color:#050415>01</b><b style=color:#050416>000</b><b style=color:#060517>1</b><b style=color:#070617>0</b><b style=color:#030314>1</b><b style=color:#010214>1</b><b style=color:#020315>01</b><b style=color:#040415>1</b><b style=color:#040414>0</b><b style=color:#050516>1</b><b style=color:#0D0C1E>1</b><b style=color:#111022>1</b><b style=color:#100F21>0101</b><b style=color:#121125>1</b><b style=color:#161428>1</b><b style=color:#17162A>1</b><b style=color:#18172B>0</b><b style=color:#19182B>0</b><b style=color:#18172A>1</b><b style=color:#121123>1</b><b style=color:#100F20>1</b><b style=color:#111123>0</b><b style=color:#151428>1</b><b style=color:#201D33>0</b><b style=color:#2E2B41>1</b><b style=color:#39354C>0</b><b style=color:#5A556F>1</b><b style=color:#47454C>0</b><b style=color:#000000>00110110111100110</b>
-</div>
-<div class="line">
-<b style=color:#000000>1100010</b><b style=color:#0F0F11>1</b><b style=color:#181720>1</b><b style=color:#161522>1</b><b style=color:#0C0D1B>1</b><b style=color:#050715>0</b><b style=color:#010311>0</b><b style=color:#00000E>0</b><b style=color:#00000D>00</b><b style=color:#00000E>1</b><b style=color:#020312>1</b><b style=color:#0A0C1B>1</b><b style=color:#0C0B1D>1</b><b style=color:#07071A>1</b><b style=color:#040518>0</b><b style=color:#040517>0</b><b style=color:#030416>1</b><b style=color:#040315>0</b><b style=color:#030315>011</b><b style=color:#040315>10000</b><b style=color:#050416>10</b><b style=color:#060517>0</b><b style=color:#060618>1</b><b style=color:#060719>0</b><b style=color:#070719>1</b><b style=color:#080819>0</b><b style=color:#09081A>1</b><b style=color:#070719>1</b><b style=color:#040516>1</b><b style=color:#0B0A1C>0</b><b style=color:#0F0E21>1</b><b style=color:#0F0E20>01</b><b style=color:#100F21>0</b><b style=color:#121024>0</b><b style=color:#141227>0</b><b style=color:#16162B>0</b><b style=color:#17172B>1</b><b style=color:#1A1A2E>0</b><b style=color:#1F1D32>11</b><b style=color:#100F20>1</b><b style=color:#0F0E20>1</b><b style=color:#131226>0</b><b style=color:#1A192E>1</b><b style=color:#252339>1</b><b style=color:#302E44>1</b><b style=color:#3C3A53>1</b><b style=color:#635D71>0</b><b style=color:#1B1A1A>0</b><b style=color:#000000>0010101101011000</b>
-</div>
-<div class="line">
-<b style=color:#000000>111001000</b><b style=color:#060606>1</b><b style=color:#0C0C0E>0</b><b style=color:#101014>0</b><b style=color:#121219>1</b><b style=color:#111119>1</b><b style=color:#0D0D17>1</b><b style=color:#0C0B17>1</b><b style=color:#0C0A15>1</b><b style=color:#090712>0</b><b style=color:#0B0B18>1</b><b style=color:#0F0E1D>1</b><b style=color:#110F20>1</b><b style=color:#0C0C1E>0</b><b style=color:#08091C>1</b><b style=color:#070719>0</b><b style=color:#050618>1</b><b style=color:#040417>1</b><b style=color:#040416>01</b><b style=color:#040316>1</b><b style=color:#050417>01</b><b style=color:#060518>100</b><b style=color:#060517>1</b><b style=color:#060518>1</b><b style=color:#070618>11</b><b style=color:#070619>11</b><b style=color:#070719>0</b><b style=color:#060719>0</b><b style=color:#040616>1</b><b style=color:#040416>0</b><b style=color:#09091C>0</b><b style=color:#0D0C1E>0</b><b style=color:#0C0B1D>1</b><b style=color:#0E0D1F>0</b><b style=color:#0F0E20>0</b><b style=color:#100F22>0</b><b style=color:#110F23>1</b><b style=color:#101023>0</b><b style=color:#111024>1</b><b style=color:#151428>0</b><b style=color:#222035>1</b><b style=color:#171527>1</b><b style=color:#121122>0</b><b style=color:#121123>1</b><b style=color:#161428>0</b><b style=color:#19172A>1</b><b style=color:#1C1A2D>0</b><b style=color:#29263B>1</b><b style=color:#484350>1</b><b style=color:#111010>0</b><b style=color:#000000>1010110101000001</b>
-</div>
-<div class="line">
-<b style=color:#000000>11110000011100</b><b style=color:#030303>0</b><b style=color:#070707>1</b><b style=color:#09090A>1</b><b style=color:#090809>1</b><b style=color:#0C0C0D>0</b><b style=color:#0A090B>1</b><b style=color:#0E0D10>0</b><b style=color:#0D0D10>1</b><b style=color:#0F0F13>0</b><b style=color:#101015>0</b><b style=color:#131319>0</b><b style=color:#0F0F16>1</b><b style=color:#111018>1</b><b style=color:#111019>1</b><b style=color:#16151E>0</b><b style=color:#15141E>0</b><b style=color:#12121C>0</b><b style=color:#11101A>1</b><b style=color:#11111B>0</b><b style=color:#14141F>0</b><b style=color:#11111C>1</b><b style=color:#13131E>1</b><b style=color:#15141F>0</b><b style=color:#14131E>01</b><b style=color:#15141F>10</b><b style=color:#171621>0</b><b style=color:#12111C>0</b><b style=color:#0F0F1A>0</b><b style=color:#10101B>1</b><b style=color:#12111C>1</b><b style=color:#14141D>0</b><b style=color:#14121D>0</b><b style=color:#15141F>0</b><b style=color:#181722>0</b><b style=color:#1C1B25>0</b><b style=color:#16151E>1</b><b style=color:#181720>1</b><b style=color:#18171E>1</b><b style=color:#1B1B20>1</b><b style=color:#141417>0</b><b style=color:#121216>0</b><b style=color:#0F0F13>1</b><b style=color:#131216>10</b><b style=color:#141316>0</b><b style=color:#121214>1</b><b style=color:#070707>0</b><b style=color:#000000>00111010001001011</b>
-</div>
-<div class="line">
-<b style=color:#000000>01101010100010111010111000011101001100110000100011001001011001011001000111010001</b>
-</div>
-  </pre>
+  <div id="game-container">
+    <!-- Particle effect canvas behind all content -->
+    <canvas id="particleCanvas"></canvas>
+    
+    <!-- Header container for the ASCII art -->
+    <div id="header-container">
+      <pre id="tiresult" style="font-size: 9px; background-color: transparent; font-weight: bold; padding: 4px 5px; --fs: 9px;">
+<b style="color:#000000">1100000111111011000010001011011110100000100100010000100110100111000011111101001100110100001110010000</b>
+<b style="color:#000000">1101011010000101010110110101110011001001010111110101010110101110100100010001000101000000001011100011</b>
+<b style="color:#000000">0000101110101011010010111001111010000101000110100010011111111100100000111000010001111100110000110000</b>
+<b style="color:#000000">0010110000111011000010111010100111110001011100110000111111011110010010111011001010111100111111100001</b>
+<b style="color:#000000">1100001011110111100000100011111010010001010101110001101101010011000100101010000111110111000111000101</b>
+<b style="color:#000000">0000101000111100110001111101101111011111110101000100100110100010101000100100100011011000100101110011</b>
+<b style="color:#000000">111101100000100001101110011011111001</b><b style="color:#030304">1</b><b style="color:#000000">101000111001011011111110100101111101111111011011101101010010110</b>
+<b style="color:#000000">110101010010011110110010011011000010</b><b style="color:#272534">0</b><b style="color:#46374E">0</b><b style="color:#352B3B">0</b><b style="color:#1C1A23">1</b><b style="color:#0B0C0F">0</b><b style="color:#020303">0</b><b style="color:#000000">0001111011000100010011101111111010011100111100111000111011</b>
+<b style="color:#000000">000110001110100111110100110110100010</b><b style="color:#2D2C3D">1</b><b style="color:#90637C">0</b><b style="color:#AC718A">0</b><b style="color:#8B5E7A">0</b><b style="color:#664864">0</b><b style="color:#423349">0</b><b style="color:#272232">0</b><b style="color:#1B1922">1</b><b style="color:#110F13">1</b><b style="color:#020202">0</b><b style="color:#000000">00</b><b style="color:#030303">0</b><b style="color:#070607">1</b><b style="color:#080709">1</b><b style="color:#080708">1</b><b style="color:#050505">0</b><b style="color:#000000">01010001011010000001111110000001100110011101011</b>
+<b style="color:#000000">000111001011000010010011101010001111</b><b style="color:#1C1D28">0</b><b style="color:#6A4C63">1</b><b style="color:#D08696">1</b><b style="color:#C17B8E">0</b><b style="color:#A2677F">0</b><b style="color:#7F526D">0</b><b style="color:#573A54">0</b><b style="color:#30233B">1</b><b style="color:#2B253B">0</b><b style="color:#352F42">1</b><b style="color:#383344">0</b><b style="color:#443F52">1</b><b style="color:#4C465D">0</b><b style="color:#514B61">0</b><b style="color:#554E65">0</b><b style="color:#575067">1</b><b style="color:#564E65">0</b><b style="color:#554D61">0</b><b style="color:#4D4658">0</b><b style="color:#453F4F">0</b><b style="color:#3F3947">1</b><b style="color:#2B2730">1</b><b style="color:#19171D">1</b><b style="color:#0C0B0D">1</b><b style="color:#020202">0</b><b style="color:#000000">010111101111111110111110110101000001100</b>
+<b style="color:#000000">101000101000110111010010100011001110</b><b style="color:#09090B">0</b><b style="color:#332D43">0</b><b style="color:#A0697E">0</b><b style="color:#B47186">0</b><b style="color:#7B4C63">1</b><b style="color:#59384E">1</b><b style="color:#462F45">0</b><b style="color:#392B41">1</b><b style="color:#292339">1</b><b style="color:#38324B">1</b><b style="color:#403B53">1</b><b style="color:#433E57">1</b><b style="color:#433E58">1</b><b style="color:#413D57">0</b><b style="color:#3F3B54">0</b><b style="color:#3E3A53">1</b><b style="color:#3E3A52">0</b><b style="color:#3F3A53">1</b><b style="color:#413C55">1</b><b style="color:#443F58">1</b><b style="color:#46405A">1</b><b style="color:#47425B">1</b><b style="color:#4A435C">0</b><b style="color:#484258">1</b><b style="color:#423D51">0</b><b style="color:#3B3745">0</b><b style="color:#3E3945">0</b><b style="color:#393343">1</b><b style="color:#2D2736">1</b><b style="color:#2E2634">0</b><b style="color:#342836">1</b><b style="color:#382A37">1</b><b style="color:#372634">1</b><b style="color:#261E2B">0</b><b style="color:#040405">1</b><b style="color:#000000">11010100100110111000101000101</b>
+<b style="color:#000000">0101101101010100101110100001101111101</b><b style="color:#20202C">1</b><b style="color:#45354D">0</b><b style="color:#905A73">1</b><b style="color:#633F57">1</b><b style="color:#392D44">0</b><b style="color:#322D43">1</b><b style="color:#342F46">1</b><b style="color:#373149">1</b><b style="color:#000000">(ASCII content continues... include the full code as needed)</b>
+      </pre>
+    </div>
+    
+    <!-- Narrative text area -->
+    <div id="text"></div>
+    <!-- Choices display -->
+    <div id="choices"></div>
+    <!-- Input container for player's command -->
+    <div id="input-container">
+      <span id="prompt">&gt;</span>
+      <input type="text" id="command-input" autocomplete="off" />
+    </div>
+  </div>
+
+  <script>
+    /***** Global State *****/
+    let state = {
+      hasArtifact: false,
+      journalWritten: false
+    };
+
+    // Holds the current list of choices for input validation.
+    let currentChoices = [];
+
+    /***** Typing Sound Setup *****
+     * Ensure you have a file named "typing.mp3" in the same folder,
+     * or update the URL accordingly.
+     * Volume is set low (0.1) for a subtle effect.
+     */
+    var typingSound = new Audio('typing.mp3');
+    typingSound.volume = 0.1;
+    function playTypingSound() {
+      // Clone the sound so overlapping plays are possible.
+      var sound = typingSound.cloneNode();
+      sound.volume = 0.1;
+      sound.play();
+    }
+
+    /***** Scene Definitions *****
+     * Each scene includes:
+     *   - text: narrative content
+     *   - choices: an array of { option: "Choice text", next: "sceneId" }
+     *   - (optionally) effect: a function to update state
+     *   - (optionally) end: true if terminal
+     */
+    const scenes = {
+      "intro": {
+        text: "You awaken in a realm of shadow and whispers...\n\nA long-forgotten legend tells of a crypt hidden beneath an ancient castle, a library filled with secrets, and a tapestry that conceals mysteries beyond mortal ken.\n\nWill you dare to embark on this labyrinthine quest?",
+        choices: [
+          { option: "Venture into the dark crypt.", next: "crypt_entrance" },
+          { option: "Explore the mysterious library.", next: "library" },
+          { option: "Examine the ancient tapestry.", next: "tapestry" }
+        ]
+      },
+      "crypt_entrance": {
+        text: "Standing before the heavy, iron-bound entrance of the crypt, a chill runs down your spine.\nThe darkness beckons with promises of danger and secret lore.",
+        choices: [
+          { option: "Descend into the catacombs.", next: "catacombs" },
+          { option: "Search for hidden passages along the walls.", next: "hidden_crypt" },
+          { option: "Step back to reconsider your journey.", next: "intro" }
+        ]
+      },
+      "catacombs": {
+        text: "In the winding catacombs, faint whispers and distant echoes create an unsettling atmosphere.\nStrange inscriptions and eerie sounds surround you.",
+        choices: [
+          { option: "Investigate the unsettling sounds.", next: "ghost_encounter" },
+          { option: "Examine the mysterious inscriptions on the walls.", next: "crypt_inscriptions" },
+          { option: "Press onward deeper into the darkness.", next: "crypt_deeper" }
+        ]
+      },
+      "hidden_crypt": {
+        text: "A narrow corridor reveals a hidden section of the crypt, where shadows conceal many secrets.",
+        choices: [
+          { option: "Pull a suspicious lever embedded in the wall.", next: "secret_door" },
+          { option: "Examine an ornate chest tucked in the corner.", next: "ornate_chest" },
+          { option: "Search the floor meticulously for traps.", next: "crypt_traps" }
+        ]
+      },
+      "ghost_encounter": {
+        text: "A translucent figure materializes before you—a ghost filled with sorrow and ancient regret.",
+        choices: [
+          { option: "Attempt to communicate with the spirit.", next: "ghost_talk" },
+          { option: "Flee in terror through the winding tunnels.", next: "crypt_flee" },
+          { option: "Defend yourself with any weapon you possess.", next: "ghost_fight" }
+        ]
+      },
+      "crypt_inscriptions": {
+        text: "The inscriptions speak of a relic lost in time and a path known only to the brave.\nMysteries beckon from every symbol.",
+        choices: [
+          { option: "Decipher the cryptic symbols carefully.", next: "decipher_symbols" },
+          { option: "Ignore the markings and move deeper.", next: "crypt_deeper" },
+          { option: "Record the inscriptions in your journal.", next: "journal_record" }
+        ]
+      },
+      "crypt_deeper": {
+        text: "Deeper in the crypt, you enter a chamber pulsing with a mysterious energy.\nThe air grows colder, and your heart beats faster.",
+        choices: [
+          { option: "Enter the chamber illuminated by glowing runes.", next: "rune_chamber" },
+          { option: "Follow the sound of echoing water droplets.", next: "water_chamber" },
+          { option: "Climb a narrow, creaking set of stairs.", next: "narrow_stairs" }
+        ]
+      },
+      "secret_door": {
+        text: "The lever clicks, and a hidden door groans open to reveal a room glittering with treasures and secrets.",
+        choices: [
+          { option: "Step into the treasure room with cautious hope.", next: "treasure_room" },
+          { option: "Search the room for clues about the door’s mechanism.", next: "door_clues" },
+          { option: "Decide to leave quietly and return.", next: "crypt_entrance" }
+        ]
+      },
+      "ornate_chest": {
+        text: "The chest is masterfully carved and sealed. Within, you sense a mysterious artifact awaits.",
+        choices: [
+          { option: "Retrieve the artifact hidden inside.", next: "artifact_taken" },
+          { option: "Inspect the chest for any deadly traps.", next: "chest_inspect" },
+          { option: "Leave the chest undisturbed and explore elsewhere.", next: "hidden_crypt" }
+        ]
+      },
+      "crypt_traps": {
+        text: "Carefully scanning the floor, you notice an intricate network of traps designed to ensnare the unwary.",
+        choices: [
+          { option: "Attempt to disarm the trap with steady hands.", next: "trap_disarmed" },
+          { option: "Carefully avoid the trap by stepping aside.", next: "trap_avoided" },
+          { option: "Trigger the trap deliberately to test its mechanism.", next: "trap_triggered" }
+        ]
+      },
+      "ghost_talk": {
+        text: "The ghost’s voice trembles as it utters a cryptic message: \"Seek the wisdom hidden within the library, and the relic lies behind the tapestry...\"",
+        choices: [
+          { option: "Thank the ghost and head to the secret door.", next: "secret_door" },
+          { option: "Ask for more details about its message.", next: "ghost_more" },
+          { option: "Dismiss the apparition and return to the crypt entrance.", next: "crypt_entrance" }
+        ]
+      },
+      "crypt_flee": {
+        text: "In a panicked dash through twisting tunnels, you soon find yourself hopelessly lost among the dark passages.",
+        choices: [
+          { option: "Try to retrace your steps back to the entrance.", next: "crypt_entrance" },
+          { option: "Keep running forward into the unknown.", next: "narrow_stairs" },
+          { option: "Find a quiet corner to hide and catch your breath.", next: "trap_avoided" }
+        ]
+      },
+      "ghost_fight": {
+        text: "You lunge forward, attempting to fight the spectral foe. Yet, the ghost’s ethereal form eludes your attacks,\nand your courage begins to falter.",
+        choices: [
+          { option: "Regroup and try a different approach.", next: "crypt_entrance" },
+          { option: "Surrender to the overwhelming force.", next: "game_over" },
+          { option: "Attempt a risky maneuver in desperation.", next: "ghost_talk" }
+        ]
+      },
+      "decipher_symbols": {
+        text: "The symbols unravel before your eyes, hinting at a hidden relic and an ancient power residing deep within the crypt.",
+        choices: [
+          { option: "Follow the trail into the rune chamber.", next: "rune_chamber" },
+          { option: "Search further in the catacombs for the relic.", next: "crypt_deeper" },
+          { option: "Return to the castle entrance to gather your thoughts.", next: "intro" }
+        ]
+      },
+      "journal_record": {
+        text: "You carefully record the inscriptions in your journal, hoping that this ancient knowledge will guide you later.",
+        choices: [
+          { option: "Venture deeper into the crypt.", next: "crypt_deeper" },
+          { option: "Seek more answers in the mysterious library.", next: "library" },
+          { option: "Take a moment to rest and reflect on what you’ve learned.", next: "game_over" }
+        ],
+        effect: function() { state.journalWritten = true; }
+      },
+      "rune_chamber": {
+        text: "Bathed in a ghostly glow, the rune chamber vibrates with an otherworldly energy.\nA sense of destiny hints that the relic’s location is near.",
+        choices: [
+          { option: "Follow the glowing runes to the treasure.", next: "treasure_room" },
+          { option: "Detour toward the chamber of echoing water.", next: "water_chamber" },
+          { option: "Return to the mysterious catacombs.", next: "catacombs" }
+        ]
+      },
+      "water_chamber": {
+        text: "In a cavern filled with dripping water and reflective pools, the ripples reveal hidden symbols\nand patterns that seem to guide your next step.",
+        choices: [
+          { option: "Examine the reflected symbols carefully.", next: "decipher_symbols" },
+          { option: "Search the room for a secret passage.", next: "narrow_stairs" },
+          { option: "Quickly leave the unsettling chamber.", next: "crypt_entrance" }
+        ]
+      },
+      "narrow_stairs": {
+        text: "The narrow, creaking stairs lead you upward through a forgotten corridor.\nEvery step feels fraught with danger and mystery.",
+        choices: [
+          { option: "Proceed upward with extreme caution.", next: "library" },
+          { option: "Stop to examine your surroundings for clues.", next: "tapestry_study" },
+          { option: "Hasten your steps back to the safety of the crypt entrance.", next: "crypt_entrance" }
+        ]
+      },
+      "door_clues": {
+        text: "Scrutinizing the area, you discover a series of symbols and a hidden switch—a clue to the door’s mechanism.",
+        choices: [
+          { option: "Use the clues to unlock the door.", next: "treasure_room" },
+          { option: "Ignore the clues and attempt to force the door open.", next: "game_over" },
+          { option: "Search further for additional hints.", next: "secret_door" }
+        ]
+      },
+      "treasure_room": {
+        text: "You step into a dazzling treasure room filled with relics, gold, and ancient secrets.\nIn the center, the relic you have long sought radiates with mystical power.\n\nCongratulations! You have uncovered the crypt’s greatest secret and changed your destiny!",
+        choices: [],
+        end: true
+      },
+      "artifact_taken": {
+        text: "The mysterious artifact pulses with a strange energy. It might be the relic spoken of in legends.",
+        choices: [
+          { option: "Keep the artifact and head to the library for guidance.", next: "library" },
+          { option: "Try using the artifact on the crypt door.", next: "door_clues" },
+          { option: "Examine the artifact more closely.", next: "chest_inspect" }
+        ],
+        effect: function() { state.hasArtifact = true; }
+      },
+      "chest_inspect": {
+        text: "A closer inspection of the chest reveals ancient inscriptions that hint at a hidden passage in the library.",
+        choices: [
+          { option: "Return to the library with this newfound knowledge.", next: "library" },
+          { option: "Attempt to force the chest open.", next: "game_over" },
+          { option: "Ignore the chest and resume exploring the crypt.", next: "crypt_entrance" }
+        ]
+      },
+      "trap_disarmed": {
+        text: "With nimble fingers and nerves of steel, you disarm the trap—paving a safe path deeper into the crypt.",
+        choices: [
+          { option: "Continue your journey into the crypt.", next: "crypt_deeper" },
+          { option: "Return cautiously to the crypt entrance.", next: "crypt_entrance" },
+          { option: "Investigate the disarmed trap for further clues.", next: "hidden_crypt" }
+        ]
+      },
+      "trap_avoided": {
+        text: "You narrowly avoid the trap, your heart pounding at the close call.",
+        choices: [
+          { option: "Proceed carefully into the crypt.", next: "crypt_deeper" },
+          { option: "Backtrack to the safety of the crypt entrance.", next: "crypt_entrance" },
+          { option: "Study the trap’s mechanism for hidden secrets.", next: "crypt_traps" }
+        ]
+      },
+      "trap_triggered": {
+        text: "As you trigger the trap, a burst of searing energy overwhelms you.\nYour strength fades into darkness...\n\nGame Over.",
+        choices: [],
+        end: true
+      },
+      "library": {
+        text: "You enter an ancient library filled with towering bookshelves, dusty scrolls, and whispered lore.\nEvery shadow seems to conceal a secret waiting to be discovered.",
+        choices: [
+          { option: "Browse through a collection of ancient scrolls.", next: "scrolls" },
+          { option: "Search for hidden compartments among the shelves.", next: "secret_compartment" },
+          { option: "Consult with a mysterious, wise librarian.", next: "librarian" }
+        ]
+      },
+      "tapestry": {
+        text: "An enormous, faded tapestry hangs on the wall. Its intricate designs and obscure figures hint at a long-forgotten tale.",
+        choices: [
+          { option: "Study the images and symbols in the tapestry.", next: "tapestry_study" },
+          { option: "Carefully lift the tapestry to see what lies behind it.", next: "tapestry_secret" },
+          { option: "Attempt to restore its faded colors with gentle care.", next: "tapestry_restore" }
+        ]
+      },
+      "scrolls": {
+        text: "The ancient scrolls contain maps, cryptic riddles, and the lore of this forsaken place.\nEvery word hints at hidden paths and dangerous truths.",
+        choices: [
+          { option: "Study the maps and riddles intently.", next: "librarian" },
+          { option: "Memorize key details and store them in your mind.", next: "librarian" },
+          { option: "Copy the scrolls’ secrets into your journal.", next: "journal_record" }
+        ]
+      },
+      "secret_compartment": {
+        text: "Behind a row of dusty tomes, you discover a secret compartment tucked away.\nIts contents could be the key to unraveling the mysteries here.",
+        choices: [
+          { option: "Open the compartment to reveal its contents.", next: "scrolls" },
+          { option: "Leave the compartment undisturbed.", next: "library" },
+          { option: "Examine the surrounding area for further clues.", next: "librarian" }
+        ]
+      },
+      "librarian": {
+        text: "A wizened librarian materializes from the shadows, offering cryptic advice and guidance.\nHer eyes glimmer with the secrets of ages past.",
+        choices: [
+          { option: "Listen intently to her advice.", next: "tapestry_study" },
+          { option: "Inquire about the relic mentioned in legends.", next: "artifact_taken" },
+          { option: "Ask about the secret compartments in the library.", next: "secret_compartment" }
+        ]
+      },
+      "tapestry_study": {
+        text: "Studying the tapestry, you decipher a hidden narrative of heroes, treachery, and lost relics.\nThe clues hint at a concealed path behind the woven threads.",
+        choices: [
+          { option: "Follow the hints to discover a secret passage.", next: "tapestry_secret" },
+          { option: "Set aside the tapestry and continue exploring the library.", next: "library" },
+          { option: "Attempt to restore the tapestry to its former glory.", next: "tapestry_restore" }
+        ]
+      },
+      "tapestry_secret": {
+        text: "Behind the tapestry, a concealed door leads into a dimly lit mystical chamber filled with magic and mystery.",
+        choices: [
+          { option: "Enter the mystical chamber with determination.", next: "mystical_chamber" },
+          { option: "Return to the library to gather more clues.", next: "library" },
+          { option: "Search the area for further hidden secrets.", next: "tapestry_study" }
+        ]
+      },
+      "tapestry_restore": {
+        text: "As you carefully restore the faded colors of the tapestry, hidden symbols emerge—revealing a new passage and a glimmer of destiny.",
+        choices: [
+          { option: "Step into the newly revealed passage.", next: "mystical_chamber" },
+          { option: "Save your work and return to the library.", next: "library" },
+          { option: "Ignore the passage and scrutinize the room further.", next: "librarian" }
+        ]
+      },
+      "mystical_chamber": {
+        text: "In the mystical chamber, the air vibrates with ancient power and magic. You feel the relic’s energy pulsing all around you.\n\nCongratulations! You have uncovered the ultimate secret and harnessed the power of the ancients!",
+        choices: [],
+        end: true
+      },
+      "ghost_more": {
+        text: "The ghost’s voice grows softer yet clearer: \"Seek wisdom in the library and let the tapestry reveal what is hidden.\"",
+        choices: [
+          { option: "Head to the library immediately.", next: "library" },
+          { option: "Examine the tapestry for hidden messages.", next: "tapestry" },
+          { option: "Return to the crypt entrance to reconsider.", next: "crypt_entrance" }
+        ]
+      },
+      "game_over": {
+        text: "Fate has not smiled upon you this time...\n\nGame Over.",
+        choices: [],
+        end: true
+      }
+    };
+
+    /***** Utility: Animate Text Slowly *****
+     * Displays the given text one character at a time in the target element.
+     * Calls callback() when finished.
+     */
+    function typeText(text, targetElement, callback) {
+      targetElement.innerHTML = ""; // Clear previous text
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i < text.length) {
+          const char = text.charAt(i);
+          targetElement.innerHTML += char;
+          if (char !== " " && char !== "\n") {
+            playTypingSound();
+          }
+          i++;
+        } else {
+          clearInterval(interval);
+          if (callback) callback();
+        }
+      }, 40 + Math.random() * 30);
+    }
+
+    // Animate the choices text slowly (using typeText)
+    function animateChoices(choices, callback) {
+      currentChoices = choices; // Update current choices for input handling
+      const choicesDiv = document.getElementById("choices");
+      let combinedText = "";
+      if (choices.length === 0) {
+        combinedText = "\n[Press Enter to restart]";
+      } else {
+        choices.forEach((choice, index) => {
+          combinedText += `${index + 1}. ${choice.option}\n`;
+        });
+        combinedText += "\nType the number of your choice and press Enter.";
+      }
+      typeText(combinedText, choicesDiv, () => {
+        // After animating choices, show and focus the input field.
+        document.getElementById("input-container").style.display = "flex";
+        document.getElementById("command-input").value = "";
+        document.getElementById("command-input").focus();
+        if (callback) callback();
+      });
+    }
+
+    /***** Main: Display a Scene *****
+     * Clears the screen, animates scene text (and runs any state effect),
+     * then animates available choices.
+     */
+    function displayScene(sceneId) {
+      // Hide the input container during text animation.
+      document.getElementById("input-container").style.display = "none";
+      const scene = scenes[sceneId];
+      if (scene.effect) scene.effect();
+      const textDiv = document.getElementById("text");
+      typeText(scene.text, textDiv, () => {
+        if (scene.end || scene.choices.length === 0) {
+          animateChoices([]);
+        } else {
+          animateChoices(scene.choices);
+        }
+      });
+    }
+
+    /***** Handle Player Input *****
+     * When the player types a choice and presses Enter, validate the input and proceed.
+     */
+    document.getElementById("command-input").addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        const inputVal = this.value.trim();
+        if (currentChoices.length === 0) {
+          startGame();
+          return;
+        }
+        const choiceNum = parseInt(inputVal, 10);
+        if (!isNaN(choiceNum) && choiceNum >= 1 && choiceNum <= currentChoices.length) {
+          const nextScene = currentChoices[choiceNum - 1].next;
+          displayScene(nextScene);
+        } else {
+          this.value = "";
+        }
+      }
+    });
+
+    /***** Particle Effect on Container Border *****/
+    const canvas = document.getElementById("particleCanvas");
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+    function resizeCanvas() {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    function spawnParticle() {
+      let border = Math.floor(Math.random() * 4);
+      let x, y;
+      if (border === 0) { // top
+        x = Math.random() * canvas.width;
+        y = 0;
+      } else if (border === 1) { // right
+        x = canvas.width;
+        y = Math.random() * canvas.height;
+      } else if (border === 2) { // bottom
+        x = Math.random() * canvas.width;
+        y = canvas.height;
+      } else { // left
+        x = 0;
+        y = Math.random() * canvas.height;
+      }
+      let angle = Math.random() * Math.PI * 2;
+      let speed = Math.random() * 0.5 + 0.5;
+      let vx = Math.cos(angle) * speed;
+      let vy = Math.sin(angle) * speed;
+      particles.push({ x, y, vx, vy, alpha: 1, lifetime: Math.random() * 60 + 60 });
+    }
+    function updateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < 3; i++) {
+        spawnParticle();
+      }
+      particles.forEach((p, index) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.lifetime--;
+        p.alpha = p.lifetime / 120;
+        ctx.fillStyle = `rgba(128,0,128,${p.alpha})`; // purple particles
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+        if (p.lifetime <= 0) {
+          particles.splice(index, 1);
+        }
+      });
+      requestAnimationFrame(updateParticles);
+    }
+    updateParticles();
+
+    /***** Start / Restart the Game *****/
+    function startGame() {
+      state = { hasArtifact: false, journalWritten: false };
+      displayScene("intro");
+    }
+
+    // Begin the game when the page loads.
+    window.onload = startGame;
+  </script>
 </body>
 </html>
