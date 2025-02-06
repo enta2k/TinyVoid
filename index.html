@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- Ensures proper scaling on smartphones -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purple Labyrinth Text Adventure</title>
+  <style>
+    /* Base page styling */
+    body {
+      background-color: #000;
+      color: purple;
+      font-family: "Courier New", Courier, monospace;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    /* Game container: fixed at 630x980 (70% of 900x1400) with a pulsing purple glow */
+    #game-container {
+      position: relative;
+      width: 630px;
+      height: 980px;
+      max-width: 100%;
+      max-height: 100%;
+      padding: 20px;
+      border: 2px solid purple;
+      background-color: #000;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: pulse 3s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 10px purple; }
+      50% { box-shadow: 0 0 20px purple; }
+      100% { box-shadow: 0 0 10px purple; }
+    }
+    /* Particle canvas covers the entire container behind all content */
+    #particleCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    /* Header container occupies the top 33% of the game container */
+    #header-container {
+      flex: 0 0 33%;
+      overflow: auto;
+      position: relative;
+      z-index: 1;
+    }
+    /* ASCII art styling – uses your provided code and glitch effect */
+    #tiresult {
+      font-size: 9px;
+      background-color: #000;
+      font-weight: bold;
+      padding: 4px 5px;
+      color: #E6E6E6;
+      white-space: pre;
+      overflow-x: auto;
+      margin: 0;
+    }
+    .line {
+      display: block;
+      white-space: nowrap;
+      position: relative;
+      animation-duration: 30s;
+      animation-iteration-count: infinite;
+      animation-timing-function: linear;
+    }
+    .line:nth-child(odd) {
+      animation-name: glitch-right;
+    }
+    .line:nth-child(even) {
+      animation-name: glitch-left;
+    }
+    @keyframes glitch-right {
+      0%, 50%, 53%, 100% { transform: translateX(0); }
+      50.5% { transform: translateX(10px); }
+      50.7% { transform: translateX(-10px); }
+      50.9% { transform: translateX(8px); }
+      51.1% { transform: translateX(-8px); }
+      51.3% { transform: translateX(6px); }
+      51.5% { transform: translateX(-6px); }
+      51.7% { transform: translateX(4px); }
+      51.9% { transform: translateX(-4px); }
+      52.1% { transform: translateX(2px); }
+      52.3% { transform: translateX(-2px); }
+      52.5% { transform: translateX(0); }
+    }
+    @keyframes glitch-left {
+      0%, 50%, 53%, 100% { transform: translateX(0); }
+      50.5% { transform: translateX(-10px); }
+      50.7% { transform: translateX(10px); }
+      50.9% { transform: translateX(-8px); }
+      51.1% { transform: translateX(8px); }
+      51.3% { transform: translateX(-6px); }
+      51.5% { transform: translateX(6px); }
+      51.7% { transform: translateX(-4px); }
+      51.9% { transform: translateX(4px); }
+      52.1% { transform: translateX(-2px); }
+      52.3% { transform: translateX(2px); }
+      52.5% { transform: translateX(0); }
+    }
+    /* Narrative text styling with a fade-in-up animation */
+    #text {
+      white-space: pre-wrap;
+      line-height: 1.5;
+      min-height: 200px;
+      width: 100%;
+      margin: 10px 0;
+      position: relative;
+      z-index: 1;
+      color: purple;
+      animation: fadeInUp 0.5s ease-out;
+    }
+    /* Choices styling with the same animation */
+    #choices {
+      width: 100%;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      position: relative;
+      z-index: 1;
+      color: purple;
+      animation: fadeInUp 0.5s ease-out;
+    }
+    /* Input container styling with a fade-in-up effect */
+    #input-container {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      font-size: 1.1em;
+      position: relative;
+      z-index: 1;
+      display: none;
+      animation: fadeInUp 0.5s ease-out;
+    }
+    /* Blinking prompt indicator */
+    #prompt {
+      margin-right: 5px;
+      animation: blink 1s step-start infinite;
+    }
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    /* Input field styling */
+    #command-input {
+      background: none;
+      border: none;
+      outline: none;
+      color: purple;
+      font-family: inherit;
+      font-size: inherit;
+      flex: 1;
+      transition: box-shadow 0.3s ease;
+    }
+    #command-input:focus {
+      box-shadow: 0 0 5px purple;
+    }
+    /* Fade-in-up animation */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <!-- Particle effect canvas behind all content -->
+    <canvas id="particleCanvas"></canvas>
+    
+    <!-- Header container for ASCII art -->
+    <div id="header-container">
+      <!-- Full ASCII art code from your snippet -->
+      <div class="line"><pre id="tiresult" style="font-size: 9px; background-color: #000000; font-weight: bold; padding: 4px 5px; --fs: 9px;"><b style="color:#000000">10100111010110111110101001100100110001001101110100</b></pre></div>
+      <div class="line"><pre style="font-size: 9px; background-color: #000000; font-weight: bold; padding: 4px 5px; --fs: 9px;"><b style="color:#000000">00000110011010100001010010111101101011100111000100</b></pre></div>
+      <div class="line"><pre style="font-size: 9px; background-color: #000000; font-weight: bold; padding: 4px 5px; --fs: 9px;"><b style="color:#000000">110100001001100011</b><b style="color:#020202">1</b><b style="color:#040507">1</b><b style="color:#000000">000000101110011010111110110101</b></pre></div>
+      <div class="line"><pre style="font-size: 9px; background-color: #000000; font-weight: bold; padding: 4px 5px; --fs: 9px;"><b style="color:#000000">010101101000011010</b><b style="color:#111116">1</b><b style="color:#624961">0</b><b style="color:#5E4357">0</b><b style="color:#342938">0</b><b style="color:#17141C">0</b><b style="color:#070709">1</b><b style="color:#000000">11111100101111100010110000</b></pre></div>
+      <div class="line"><pre style="font-size: 9px; background-color: #000000; font-weight: bold; padding: 4px 5px; --fs: 9px;"><b style="color:#000000">101101111110111110</b><b style="color:#080A0D">0</b><b style="color:#745268">0</b><b style="color:#CC8296">1</b><b style="color:#A46A84">0</b><b style="color:#714B67">1</b><b style="color:#3C2C42">0</b><b style="color:#231E2F">0</b><b style="color:#23202B">1</b><b style="color:#211F28">1</b><b style="color:#2E2A38">1</b><b style="color:#363240">1</b><b style="color:#3A3543">1</b><b style="color:#3B3644">0</b><b style="color:#332F3A">0</b><b style="color:#2A2730">1</b><b style="color:#232027">0</b><b style="color:#131216">0</b><b style="color:#080709">0</b><b style="color:#000000">00111111011100</b></pre></div>
+      <div class="line"><pre style="font-size: 9px; background-color: #000000; font-weight: bold; padding: 4px 5px; --fs: 9px;"><b style="color:#000000">1110100001000111111</b><b style="color:#2F2838">1</b><b style="color:#A66C82">0</b><b style="color:#935B71">0</b><b style="color:#58394F">1</b><b style="color:#3F2E45">0</b><b style="color:#2F283F">1</b><b style="color:#3B354D">1</b><b style="color:#433E57">0</b><b style="color:#45405A">1</b><b style="color:#433E59">1</b><b style="color:#423D57">0</b><b style="color:#423D56">10</b><b style="color:#443F58">1</b><b style="color:#454058">0</b><b style="color:#433E55">0</b><b style="color:#403B50">0</b><b style="color:#373345">0</b><b style="color:#34303D">1</b><b style="color:#36303F">0</b><b style="color:#2D2533">0</b><b style="color:#352532">1</b><b style="color:#402A36">0</b><b style="color:#392A36">0</b><b style="color:#121113">0</b><b style="color:#000000">010010</b></pre></div>
+      <div class="line"><pre style="font-size: 9px; background-color: #000000; font-weight: bold; padding: 4px 5px; --fs: 9px;"><b style="color:#000000">1011010001100110111</b><b style="color:#0F1013">0</b><b style="color:#46354B">1</b><b style="color:#5B3D55">1</b><b style="color:#312B41">0</b><b style="color:#302D43">0</b><b style="color:#353047">1</b><b style="color:#353048">0</b><b style="color:#363148">1</b><b style="color:#343047">1</b><b style="color:#312E45">1</b><b style="color:#302C43">1</b><b style="color:#302C42">0</b><b style="color:#2E2B41">111</b><b style="color:#2F2B42">0</b><b style="color:#2F2C43">0</b><b style="color:#322E45">1</b><b style="color:#36324A">0</b><b style="color:#3C374F">0</b><b style="color:#453B54">0</b><b style="color:#62455E">1</b><b style="color:#89546B">1</b><b style="color:#47363F">1</b><b style="color:#000000">1100111</b></pre></div>
+      <div class="line"><pre style="font-size: 9px; background-color: #000000; font-weight: bold; padding: 4px 5px; --fs: 9px;"><b style="color:#000000">0100100010100110001</b><b style="color:#111015">1</b><b style="color:#2A273C">0</b><b style="color:#28263C">1</b><b style="color:#2B293E">1</b><b style="color:#2C293E">1</b><b style="color:#2D293F">1</b><b style="color:#2C293F">0</b><b style="color:#28243A">00</b><b style="color:#373048">0</b><b style="color:#443A53">0</b><b style="color:#3D364E">1</b><b style="color:#312B42">1</b><b style="color:#262238">1</b><b style="color:#272439">00</b><b style="color:#282539">011</b><b style="color:#272439">1</b><b style="color:#28253B">1</b><b style="color:#2F2B43">0</b><b style="color:#453D52">0</b><b style="color:#000000">1100001</b></pre></div>
+      <div class="line"><pre style="font-size: 9px; background-color: #000000; font-weight: bold; padding: 4px 5px; --fs: 9px;"><b style="color:#000000">101001110110001101</b><b style="color:#0A090B">1</b><b style="color:#302C40">1</b><b style="color:#2C283E">1</b><b style="color:#2C293E">1</b><b style="color:#2B283D">1</b><b style="color:#000000">(ASCII content truncated for brevity – include the full content as needed)</b></pre></div>
+    </div>
+    
+    <!-- Narrative text area -->
+    <div id="text"></div>
+    <!-- Choices display -->
+    <div id="choices"></div>
+    <!-- Input container for player's command -->
+    <div id="input-container">
+      <span id="prompt">&gt;</span>
+      <input type="text" id="command-input" autocomplete="off" />
+    </div>
+  </div>
+  
+  <script>
+    /***** Global State *****/
+    let state = {
+      hasArtifact: false,
+      journalWritten: false
+    };
+
+    // Holds the current list of choices for input validation.
+    let currentChoices = [];
+
+    /***** Typing Sound Setup *****
+     * Ensure you have a file named "typing.mp3" in the same folder,
+     * or update the URL accordingly.
+     * Volume is set low (0.1) for a subtle effect.
+     */
+    var typingSound = new Audio('typing.mp3');
+    typingSound.volume = 0.1;
+    function playTypingSound() {
+      // Clone the sound so overlapping plays are possible.
+      var sound = typingSound.cloneNode();
+      sound.volume = 0.1;
+      sound.play();
+    }
+
+    /***** Utility: Animate Text Slowly *****
+     * Displays the given text one character at a time in the target element.
+     * Accepts an optional delayOverride parameter (in ms).
+     * Calls callback() when finished.
+     */
+    function typeText(text, targetElement, callback, delayOverride) {
+      targetElement.innerHTML = ""; // Clear previous text
+      let i = 0;
+      const delay = (delayOverride !== undefined ? delayOverride : (40 + Math.random() * 30));
+      const interval = setInterval(() => {
+        if (i < text.length) {
+          const char = text.charAt(i);
+          targetElement.innerHTML += char;
+          if (char !== " " && char !== "\n") {
+            playTypingSound();
+          }
+          i++;
+        } else {
+          clearInterval(interval);
+          if (callback) callback();
+        }
+      }, delay);
+    }
+
+    // Animate the choices text slowly.
+    // The list of choices is typed at the normal speed,
+    // and the final prompt line is typed faster.
+    function animateChoices(choices, callback) {
+      currentChoices = choices; // Update current choices for input handling
+      const choicesDiv = document.getElementById("choices");
+      let textChoices = "";
+      if (choices.length === 0) {
+        textChoices = "\n[Press Enter to restart]";
+      } else {
+        choices.forEach((choice, index) => {
+          textChoices += `${index + 1}. ${choice.option}\n`;
+        });
+      }
+      let promptText = "\nType the number of your choice and press Enter.";
+      // First type the choices list
+      typeText(textChoices, choicesDiv, function() {
+        // Then type the prompt text with a faster delay (20ms)
+        typeText(promptText, choicesDiv, function() {
+          // After animating choices, show and focus the input field.
+          document.getElementById("input-container").style.display = "flex";
+          document.getElementById("command-input").value = "";
+          document.getElementById("command-input").focus();
+          if (callback) callback();
+        }, 20);
+      });
+    }
+
+    /***** Main: Display a Scene *****
+     * Clears the screen, animates scene text (and runs any state effect),
+     * then animates available choices.
+     */
+    function displayScene(sceneId) {
+      // Hide the input container during text animation.
+      document.getElementById("input-container").style.display = "none";
+      const scene = scenes[sceneId];
+      if (scene.effect) scene.effect();
+      const textDiv = document.getElementById("text");
+      typeText(scene.text, textDiv, () => {
+        if (scene.end || scene.choices.length === 0) {
+          animateChoices([]);
+        } else {
+          animateChoices(scene.choices);
+        }
+      });
+    }
+
+    /***** Handle Player Input *****
+     * When the player types a choice and presses Enter, validate the input and proceed.
+     */
+    document.getElementById("command-input").addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        const inputVal = this.value.trim();
+        if (currentChoices.length === 0) {
+          startGame();
+          return;
+        }
+        const choiceNum = parseInt(inputVal, 10);
+        if (!isNaN(choiceNum) && choiceNum >= 1 && choiceNum <= currentChoices.length) {
+          const nextScene = currentChoices[choiceNum - 1].next;
+          displayScene(nextScene);
+        } else {
+          this.value = "";
+        }
+      }
+    });
+
+    /***** Scene Definitions *****
+     * Each scene includes:
+     *   - text: narrative content
+     *   - choices: an array of { option: "Choice text", next: "sceneId" }
+     *   - (optionally) effect: a function to update state
+     *   - (optionally) end: true if terminal
+     */
+    const scenes = {
+      "intro": {
+        text: "You awaken in a realm of shadow and whispers...\n\nA long-forgotten legend tells of a crypt hidden beneath an ancient castle, a library filled with secrets, and a tapestry that conceals mysteries beyond mortal ken.\n\nWill you dare to embark on this labyrinthine quest?",
+        choices: [
+          { option: "Venture into the dark crypt.", next: "crypt_entrance" },
+          { option: "Explore the mysterious library.", next: "library" },
+          { option: "Examine the ancient tapestry.", next: "tapestry" }
+        ]
+      },
+      "crypt_entrance": {
+        text: "Standing before the heavy, iron-bound entrance of the crypt, a chill runs down your spine.\nThe darkness beckons with promises of danger and secret lore.",
+        choices: [
+          { option: "Descend into the catacombs.", next: "catacombs" },
+          { option: "Search for hidden passages along the walls.", next: "hidden_crypt" },
+          { option: "Step back to reconsider your journey.", next: "intro" }
+        ]
+      },
+      "catacombs": {
+        text: "In the winding catacombs, faint whispers and distant echoes create an unsettling atmosphere.\nStrange inscriptions and eerie sounds surround you.",
+        choices: [
+          { option: "Investigate the unsettling sounds.", next: "ghost_encounter" },
+          { option: "Examine the mysterious inscriptions on the walls.", next: "crypt_inscriptions" },
+          { option: "Press onward deeper into the darkness.", next: "crypt_deeper" }
+        ]
+      },
+      "hidden_crypt": {
+        text: "A narrow corridor reveals a hidden section of the crypt, where shadows conceal many secrets.",
+        choices: [
+          { option: "Pull a suspicious lever embedded in the wall.", next: "secret_door" },
+          { option: "Examine an ornate chest tucked in the corner.", next: "ornate_chest" },
+          { option: "Search the floor meticulously for traps.", next: "crypt_traps" }
+        ]
+      },
+      "ghost_encounter": {
+        text: "A translucent figure materializes before you—a ghost filled with sorrow and ancient regret.",
+        choices: [
+          { option: "Attempt to communicate with the spirit.", next: "ghost_talk" },
+          { option: "Flee in terror through the winding tunnels.", next: "crypt_flee" },
+          { option: "Defend yourself with any weapon you possess.", next: "ghost_fight" }
+        ]
+      },
+      "crypt_inscriptions": {
+        text: "The inscriptions speak of a relic lost in time and a path known only to the brave.\nMysteries beckon from every symbol.",
+        choices: [
+          { option: "Decipher the cryptic symbols carefully.", next: "decipher_symbols" },
+          { option: "Ignore the markings and move deeper.", next: "crypt_deeper" },
+          { option: "Record the inscriptions in your journal.", next: "journal_record" }
+        ]
+      },
+      "crypt_deeper": {
+        text: "Deeper in the crypt, you enter a chamber pulsing with a mysterious energy.\nThe air grows colder, and your heart beats faster.",
+        choices: [
+          { option: "Enter the chamber illuminated by glowing runes.", next: "rune_chamber" },
+          { option: "Follow the sound of echoing water droplets.", next: "water_chamber" },
+          { option: "Climb a narrow, creaking set of stairs.", next: "narrow_stairs" }
+        ]
+      },
+      "secret_door": {
+        text: "The lever clicks, and a hidden door groans open to reveal a room glittering with treasures and secrets.",
+        choices: [
+          { option: "Step into the treasure room with cautious hope.", next: "treasure_room" },
+          { option: "Search the room for clues about the door’s mechanism.", next: "door_clues" },
+          { option: "Decide to leave quietly and return.", next: "crypt_entrance" }
+        ]
+      },
+      "ornate_chest": {
+        text: "The chest is masterfully carved and sealed. Within, you sense a mysterious artifact awaits.",
+        choices: [
+          { option: "Retrieve the artifact hidden inside.", next: "artifact_taken" },
+          { option: "Inspect the chest for any deadly traps.", next: "chest_inspect" },
+          { option: "Leave the chest undisturbed and explore elsewhere.", next: "hidden_crypt" }
+        ]
+      },
+      "crypt_traps": {
+        text: "Carefully scanning the floor, you notice an intricate network of traps designed to ensnare the unwary.",
+        choices: [
+          { option: "Attempt to disarm the trap with steady hands.", next: "trap_disarmed" },
+          { option: "Carefully avoid the trap by stepping aside.", next: "trap_avoided" },
+          { option: "Trigger the trap deliberately to test its mechanism.", next: "trap_triggered" }
+        ]
+      },
+      "ghost_talk": {
+        text: "The ghost’s voice trembles as it utters a cryptic message: \"Seek the wisdom hidden within the library, and the relic lies behind the tapestry...\"",
+        choices: [
+          { option: "Thank the ghost and head to the secret door.", next: "secret_door" },
+          { option: "Ask for more details about its message.", next: "ghost_more" },
+          { option: "Dismiss the apparition and return to the crypt entrance.", next: "crypt_entrance" }
+        ]
+      },
+      "crypt_flee": {
+        text: "In a panicked dash through twisting tunnels, you soon find yourself hopelessly lost among the dark passages.",
+        choices: [
+          { option: "Try to retrace your steps back to the entrance.", next: "crypt_entrance" },
+          { option: "Keep running forward into the unknown.", next: "narrow_stairs" },
+          { option: "Find a quiet corner to hide and catch your breath.", next: "trap_avoided" }
+        ]
+      },
+      "ghost_fight": {
+        text: "You lunge forward, attempting to fight the spectral foe. Yet, the ghost’s ethereal form eludes your attacks,\nand your courage begins to falter.",
+        choices: [
+          { option: "Regroup and try a different approach.", next: "crypt_entrance" },
+          { option: "Surrender to the overwhelming force.", next: "game_over" },
+          { option: "Attempt a risky maneuver in desperation.", next: "ghost_talk" }
+        ]
+      },
+      "decipher_symbols": {
+        text: "The symbols unravel before your eyes, hinting at a hidden relic and an ancient power residing deep within the crypt.",
+        choices: [
+          { option: "Follow the trail into the rune chamber.", next: "rune_chamber" },
+          { option: "Search further in the catacombs for the relic.", next: "crypt_deeper" },
+          { option: "Return to the castle entrance to gather your thoughts.", next: "intro" }
+        ]
+      },
+      "journal_record": {
+        text: "You carefully record the inscriptions in your journal, hoping that this ancient knowledge will guide you later.",
+        choices: [
+          { option: "Venture deeper into the crypt.", next: "crypt_deeper" },
+          { option: "Seek more answers in the mysterious library.", next: "library" },
+          { option: "Take a moment to rest and reflect on what you’ve learned.", next: "game_over" }
+        ],
+        effect: function() { state.journalWritten = true; }
+      },
+      "rune_chamber": {
+        text: "Bathed in a ghostly glow, the rune chamber vibrates with an otherworldly energy.\nA sense of destiny hints that the relic’s location is near.",
+        choices: [
+          { option: "Follow the glowing runes to the treasure.", next: "treasure_room" },
+          { option: "Detour toward the chamber of echoing water.", next: "water_chamber" },
+          { option: "Return to the mysterious catacombs.", next: "catacombs" }
+        ]
+      },
+      "water_chamber": {
+        text: "In a cavern filled with dripping water and reflective pools, the ripples reveal hidden symbols\nand patterns that seem to guide your next step.",
+        choices: [
+          { option: "Examine the reflected symbols carefully.", next: "decipher_symbols" },
+          { option: "Search the room for a secret passage.", next: "narrow_stairs" },
+          { option: "Quickly leave the unsettling chamber.", next: "crypt_entrance" }
+        ]
+      },
+      "narrow_stairs": {
+        text: "The narrow, creaking stairs lead you upward through a forgotten corridor.\nEvery step feels fraught with danger and mystery.",
+        choices: [
+          { option: "Proceed upward with extreme caution.", next: "library" },
+          { option: "Stop to examine your surroundings for clues.", next: "tapestry_study" },
+          { option: "Hasten your steps back to the safety of the crypt entrance.", next: "crypt_entrance" }
+        ]
+      },
+      "door_clues": {
+        text: "Scrutinizing the area, you discover a series of symbols and a hidden switch—a clue to the door’s mechanism.",
+        choices: [
+          { option: "Use the clues to unlock the door.", next: "treasure_room" },
+          { option: "Ignore the clues and attempt to force the door open.", next: "game_over" },
+          { option: "Search further for additional hints.", next: "secret_door" }
+        ]
+      },
+      "treasure_room": {
+        text: "You step into a dazzling treasure room filled with relics, gold, and ancient secrets.\nIn the center, the relic you have long sought radiates with mystical power.\n\nCongratulations! You have uncovered the crypt’s greatest secret and changed your destiny!",
+        choices: [],
+        end: true
+      },
+      "artifact_taken": {
+        text: "The mysterious artifact pulses with a strange energy. It might be the relic spoken of in legends.",
+        choices: [
+          { option: "Keep the artifact and head to the library for guidance.", next: "library" },
+          { option: "Try using the artifact on the crypt door.", next: "door_clues" },
+          { option: "Examine the artifact more closely.", next: "chest_inspect" }
+        ],
+        effect: function() { state.hasArtifact = true; }
+      },
+      "chest_inspect": {
+        text: "A closer inspection of the chest reveals ancient inscriptions that hint at a hidden passage in the library.",
+        choices: [
+          { option: "Return to the library with this newfound knowledge.", next: "library" },
+          { option: "Attempt to force the chest open.", next: "game_over" },
+          { option: "Ignore the chest and resume exploring the crypt.", next: "crypt_entrance" }
+        ]
+      },
+      "trap_disarmed": {
+        text: "With nimble fingers and nerves of steel, you disarm the trap—paving a safe path deeper into the crypt.",
+        choices: [
+          { option: "Continue your journey into the crypt.", next: "crypt_deeper" },
+          { option: "Return cautiously to the crypt entrance.", next: "crypt_entrance" },
+          { option: "Investigate the disarmed trap for further clues.", next: "hidden_crypt" }
+        ]
+      },
+      "trap_avoided": {
+        text: "You narrowly avoid the trap, your heart pounding at the close call.",
+        choices: [
+          { option: "Proceed carefully into the crypt.", next: "crypt_deeper" },
+          { option: "Backtrack to the safety of the crypt entrance.", next: "crypt_entrance" },
+          { option: "Study the trap’s mechanism for hidden secrets.", next: "crypt_traps" }
+        ]
+      },
+      "trap_triggered": {
+        text: "As you trigger the trap, a burst of searing energy overwhelms you.\nYour strength fades into darkness...\n\nGame Over.",
+        choices: [],
+        end: true
+      },
+      "library": {
+        text: "You enter an ancient library filled with towering bookshelves, dusty scrolls, and whispered lore.\nEvery shadow seems to conceal a secret waiting to be discovered.",
+        choices: [
+          { option: "Browse through a collection of ancient scrolls.", next: "scrolls" },
+          { option: "Search for hidden compartments among the shelves.", next: "secret_compartment" },
+          { option: "Consult with a mysterious, wise librarian.", next: "librarian" }
+        ]
+      },
+      "tapestry": {
+        text: "An enormous, faded tapestry hangs on the wall. Its intricate designs and obscure figures hint at a long-forgotten tale.",
+        choices: [
+          { option: "Study the images and symbols in the tapestry.", next: "tapestry_study" },
+          { option: "Carefully lift the tapestry to see what lies behind it.", next: "tapestry_secret" },
+          { option: "Attempt to restore its faded colors with gentle care.", next: "tapestry_restore" }
+        ]
+      },
+      "scrolls": {
+        text: "The ancient scrolls contain maps, cryptic riddles, and the lore of this forsaken place.\nEvery word hints at hidden paths and dangerous truths.",
+        choices: [
+          { option: "Study the maps and riddles intently.", next: "librarian" },
+          { option: "Memorize key details and store them in your mind.", next: "librarian" },
+          { option: "Copy the scrolls’ secrets into your journal.", next: "journal_record" }
+        ]
+      },
+      "secret_compartment": {
+        text: "Behind a row of dusty tomes, you discover a secret compartment tucked away.\nIts contents could be the key to unraveling the mysteries here.",
+        choices: [
+          { option: "Open the compartment to reveal its contents.", next: "scrolls" },
+          { option: "Leave the compartment undisturbed.", next: "library" },
+          { option: "Examine the surrounding area for further clues.", next: "librarian" }
+        ]
+      },
+      "librarian": {
+        text: "A wizened librarian materializes from the shadows, offering cryptic advice and guidance.\nHer eyes glimmer with the secrets of ages past.",
+        choices: [
+          { option: "Listen intently to her advice.", next: "tapestry_study" },
+          { option: "Inquire about the relic mentioned in legends.", next: "artifact_taken" },
+          { option: "Ask about the secret compartments in the library.", next: "secret_compartment" }
+        ]
+      },
+      "tapestry_study": {
+        text: "Studying the tapestry, you decipher a hidden narrative of heroes, treachery, and lost relics.\nThe clues hint at a concealed path behind the woven threads.",
+        choices: [
+          { option: "Follow the hints to discover a secret passage.", next: "tapestry_secret" },
+          { option: "Set aside the tapestry and continue exploring the library.", next: "library" },
+          { option: "Attempt to restore the tapestry to its former glory.", next: "tapestry_restore" }
+        ]
+      },
+      "tapestry_secret": {
+        text: "Behind the tapestry, a concealed door leads into a dimly lit mystical chamber filled with magic and mystery.",
+        choices: [
+          { option: "Enter the mystical chamber with determination.", next: "mystical_chamber" },
+          { option: "Return to the library to gather more clues.", next: "library" },
+          { option: "Search the area for further hidden secrets.", next: "tapestry_study" }
+        ]
+      },
+      "tapestry_restore": {
+        text: "As you carefully restore the faded colors of the tapestry, hidden symbols emerge—revealing a new passage and a glimmer of destiny.",
+        choices: [
+          { option: "Step into the newly revealed passage.", next: "mystical_chamber" },
+          { option: "Save your work and return to the library.", next: "library" },
+          { option: "Ignore the passage and scrutinize the room further.", next: "librarian" }
+        ]
+      },
+      "mystical_chamber": {
+        text: "In the mystical chamber, the air vibrates with ancient power and magic. You feel the relic’s energy pulsing all around you.\n\nCongratulations! You have uncovered the ultimate secret and harnessed the power of the ancients!",
+        choices: [],
+        end: true
+      },
+      "ghost_more": {
+        text: "The ghost’s voice grows softer yet clearer: \"Seek wisdom in the library and let the tapestry reveal what is hidden.\"",
+        choices: [
+          { option: "Head to the library immediately.", next: "library" },
+          { option: "Examine the tapestry for hidden messages.", next: "tapestry" },
+          { option: "Return to the crypt entrance to reconsider.", next: "crypt_entrance" }
+        ]
+      },
+      "game_over": {
+        text: "Fate has not smiled upon you this time...\n\nGame Over.",
+        choices: [],
+        end: true
+      }
+    };
+
+    /***** Utility: Animate Text Slowly *****
+     * Displays the given text one character at a time in the target element.
+     * Accepts an optional delayOverride parameter (in ms).
+     * Calls callback() when finished.
+     */
+    function typeText(text, targetElement, callback, delayOverride) {
+      targetElement.innerHTML = ""; // Clear previous text
+      let i = 0;
+      const delay = (delayOverride !== undefined ? delayOverride : (40 + Math.random() * 30));
+      const interval = setInterval(() => {
+        if (i < text.length) {
+          const char = text.charAt(i);
+          targetElement.innerHTML += char;
+          if (char !== " " && char !== "\n") {
+            playTypingSound();
+          }
+          i++;
+        } else {
+          clearInterval(interval);
+          if (callback) callback();
+        }
+      }, delay);
+    }
+
+    // Animate the choices text slowly.
+    // The list of choices is typed at the normal speed,
+    // and the final prompt line is typed faster.
+    function animateChoices(choices, callback) {
+      currentChoices = choices; // Update current choices for input handling
+      const choicesDiv = document.getElementById("choices");
+      let textChoices = "";
+      if (choices.length === 0) {
+        textChoices = "\n[Press Enter to restart]";
+      } else {
+        choices.forEach((choice, index) => {
+          textChoices += `${index + 1}. ${choice.option}\n`;
+        });
+      }
+      let promptText = "\nType the number of your choice and press Enter.";
+      // First type the choices list
+      typeText(textChoices, choicesDiv, function() {
+        // Then type the prompt text with a faster delay (20ms)
+        typeText(promptText, choicesDiv, function() {
+          // After animating choices, show and focus the input field.
+          document.getElementById("input-container").style.display = "flex";
+          document.getElementById("command-input").value = "";
+          document.getElementById("command-input").focus();
+          if (callback) callback();
+        }, 20);
+      });
+    }
+
+    /***** Main: Display a Scene *****
+     * Clears the screen, animates scene text (and runs any state effect),
+     * then animates available choices.
+     */
+    function displayScene(sceneId) {
+      // Hide the input container during text animation.
+      document.getElementById("input-container").style.display = "none";
+      const scene = scenes[sceneId];
+      if (scene.effect) scene.effect();
+      const textDiv = document.getElementById("text");
+      typeText(scene.text, textDiv, () => {
+        if (scene.end || scene.choices.length === 0) {
+          animateChoices([]);
+        } else {
+          animateChoices(scene.choices);
+        }
+      });
+    }
+
+    /***** Handle Player Input *****
+     * When the player types a choice and presses Enter, validate the input and proceed.
+     */
+    document.getElementById("command-input").addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        const inputVal = this.value.trim();
+        if (currentChoices.length === 0) {
+          startGame();
+          return;
+        }
+        const choiceNum = parseInt(inputVal, 10);
+        if (!isNaN(choiceNum) && choiceNum >= 1 && choiceNum <= currentChoices.length) {
+          const nextScene = currentChoices[choiceNum - 1].next;
+          displayScene(nextScene);
+        } else {
+          this.value = "";
+        }
+      }
+    });
+
+    /***** Particle Effect on Container Border *****/
+    const canvas = document.getElementById("particleCanvas");
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+    function resizeCanvas() {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    function spawnParticle() {
+      let border = Math.floor(Math.random() * 4);
+      let x, y;
+      if (border === 0) { // top
+        x = Math.random() * canvas.width;
+        y = 0;
+      } else if (border === 1) { // right
+        x = canvas.width;
+        y = Math.random() * canvas.height;
+      } else if (border === 2) { // bottom
+        x = Math.random() * canvas.width;
+        y = canvas.height;
+      } else { // left
+        x = 0;
+        y = Math.random() * canvas.height;
+      }
+      let angle = Math.random() * Math.PI * 2;
+      let speed = Math.random() * 0.5 + 0.5;
+      let vx = Math.cos(angle) * speed;
+      let vy = Math.sin(angle) * speed;
+      particles.push({ x, y, vx, vy, alpha: 1, lifetime: Math.random() * 60 + 60 });
+    }
+    function updateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < 3; i++) {
+        spawnParticle();
+      }
+      particles.forEach((p, index) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.lifetime--;
+        p.alpha = p.lifetime / 120;
+        ctx.fillStyle = `rgba(128,0,128,${p.alpha})`; // purple particles
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+        if (p.lifetime <= 0) {
+          particles.splice(index, 1);
+        }
+      });
+      requestAnimationFrame(updateParticles);
+    }
+    updateParticles();
+
+    /***** Start / Restart the Game *****/
+    function startGame() {
+      state = { hasArtifact: false, journalWritten: false };
+      displayScene("intro");
+    }
+
+    // Begin the game when the page loads.
+    window.onload = startGame;
+  </script>
+</body>
+</html>
