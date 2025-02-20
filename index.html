@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TinyVoid: Abyssal Tunnels</title>
+  <style>
+    /* BASIC PAGE STYLES */
+    html, body {
+      margin: 0; 
+      padding: 0;
+      height: 100%;
+      background: #000;    /* fallback black */
+      font-family: "Courier New", monospace;
+      color: #eee;
+      overflow: hidden;    /* We'll handle scrolling in a sub-container */
+    }
+
+    /* 
+      1. ROTATING, SCALING RADIAL BACKGROUND 
+      Using a purple glow in the center that rotates for an eerie swirling effect.
+    */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; 
+      left: 0;
+      width: 100%; 
+      height: 100%;
+      pointer-events: none;
+      z-index: 1; /* behind main content */
+      background: radial-gradient(circle at center, 
+                                  rgba(55, 0, 70, 0.4) 0%,  /* purple glow in center */
+                                  rgba(5, 0, 10, 0.8) 50%,  /* darker purple ring */
+                                  rgba(0, 0, 0, 0.95) 100%);/* black edges */
+      transform-origin: 50% 50%;
+      animation: swirlBG 20s linear infinite;
+      mix-blend-mode: multiply; /* blend with black for a dark vibe */
+    }
+
+    @keyframes swirlBG {
+      0% {
+        transform: rotate(0deg) scale(1);
+      }
+      50% {
+        transform: rotate(180deg) scale(1.1);
+      }
+      100% {
+        transform: rotate(360deg) scale(1);
+      }
+    }
+
+    /* 
+      2. MAIN LAYOUT: 
+         - #game-container with a text log area
+         - #choice-prompt-container for user input
+    */
+    #game-container {
+      position: relative;
+      z-index: 2; /* on top of swirling background */
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100vh;
+    }
+
+    #text-log-container {
+      flex: 1;
+      overflow-y: auto; 
+      padding: 20px;
+      box-sizing: border-box;
+      background: rgba(0,0,0,0.3);
+    }
+    #text-log {
+      display: flex;
+      flex-direction: column;
+    }
+    .log-line {
+      margin-bottom: 0.7em;
+      line-height: 1.4;
+      opacity: 1;
+      transition: opacity 3s linear;
+    }
+    .fade-out {
+      opacity: 0;
+    }
+
+    /* 
+      3. CHOICE INPUT 
+         - Type a number (1,2,3) for branching
+    */
+    #choice-prompt-container {
+      display: flex;
+      background: rgba(0,0,0,0.5);
+      padding: 10px;
+      align-items: center;
+    }
+    #choice-label {
+      margin-right: 10px;
+      font-weight: bold;
+      color: #eee;
+    }
+    #choice-input {
+      background: #111;
+      color: #eee;
+      border: 1px solid #444;
+      padding: 5px 10px;
+      font-family: "Courier New", monospace;
+      outline: none;
+      flex: 1;
+      font-size: 1rem;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+<div id="game-container">
+  <div id="text-log-container">
+    <div id="text-log"></div>
+  </div>
+  <div id="choice-prompt-container">
+    <span id="choice-label">Choice &gt;</span>
+    <input type="text" id="choice-input" autocomplete="off"/>
+  </div>
+</div>
+
+<script>
+/********************************************************************
+ * 1. DOM ELEMENTS
+ ********************************************************************/
+const textLog = document.getElementById("text-log");
+const choiceInput = document.getElementById("choice-input");
+
+/********************************************************************
+ * 2. STORY DATA (SAMPLE)
+ * Expand with more scenes for hours of gameplay
+ ********************************************************************/
+const STORY = [
+  /* Scene 0 */
+  {
+    text: [
+      "You awaken, surrounded by oppressive darkness. " + 
+      "A faint purple glow flickers somewhere behind your eyelids, but you can't tell what's real or imagined.",
+      "The air is stale, and your whiskers brush against damp stone. In the distance, water drips in slow intervals—a hollow, rhythmic dread.",
+      "Your stomach twists with hunger, or fear—it's hard to tell which. You sense no immediate way out, only the echo of your own soft breathing."
+    ],
+    choices: [
+      { text: "Mew softly, testing if anything else moves in the darkness.", next: 1 },
+      { text: "Feel along the walls for a path forward.", next: 2 },
+      { text: "Curl up and wait, hoping for a sign of daylight.", next: 3 }
+    ]
+  },
+  /* Scene 1 */
+  {
+    text: [
+      "Your quiet mew resonates off unseen surfaces. The echo returns distorted—like another cat answering faintly, or perhaps a trick of acoustics.",
+      "A chill spiderwalks across your fur. You're not alone... or are you?"
+    ],
+    choices: [
+      { text: "Follow where the echo seemed to come from.", next: 4 },
+      { text: "Back away, unnerved by the haunting reply.", next: 5 },
+      { text: "Remain still, letting your eyes adjust.", next: 3 }
+    ]
+  },
+  /* Scene 2 */
+  {
+    text: [
+      "Paw by paw, you trace the damp walls. The stone feels rough, occasionally broken by cracks or slimy patches. " +
+      "Your heart thumps in your chest, each beat echoing in your ears.",
+      "Suddenly, the wall falls away to your right—a passage or corner. It's impossible to see how large."
+    ],
+    choices: [
+      { text: "Turn into that new passage, hoping for progress.", next: 4 },
+      { text: "Keep going straight, ignoring distractions.", next: 5 },
+      { text: "Mark the wall with your claws, ensuring you don't go in circles.", next: 6 }
+    ]
+  },
+  /* Scene 3 */
+  {
+    text: [
+      "You curl up, tail around your paws, and wait. The darkness presses in, your mind conjuring shapes you can't quite see. " + 
+      "Time feels meaningless here.",
+      "A drop of water falls onto your ear, startling you. You realize waiting might only deepen your dread."
+    ],
+    choices: [
+      { text: "Finally stand and pick a direction at random.", next: 4 },
+      { text: "Try calling again, louder.", next: 1 },
+      { text: "Lie down, forcing yourself to sleep regardless of fear.", next: 7 }
+    ]
+  },
+
+  /* Scene 4 */
+  {
+    text: [
+      "You venture deeper into the unseen corridors. Each step echoes, the stony floor slick beneath your paws. " +
+      "Faint glimmers occasionally dance at the edge of vision—are they real or the product of eyes straining in the gloom?",
+      "Your hunger grows more insistent. You recall no memory of your last meal, only a vague pang in your gut that won't subside."
+    ],
+    choices: [
+      { text: "Feel along the ground, hoping to find something edible.", next: 8 },
+      { text: "Press on—food must exist further in.", next: 5 },
+      { text: "Try to drink from the trickling water you hear nearby.", next: 9 }
+    ]
+  },
+  /* Scene 5 */
+  {
+    text: [
+      "Your choice leads you through twisting, branching tunnels. Sometimes you hear faint skittering, or see the impression of a shape sliding just out of sight.",
+      "The purple glow overhead shifts as if swirling in an unseen vortex. The stone beneath your paws vibrates with a pulse you can't explain..."
+    ],
+    choices: [
+      { text: "Follow the vibrations, curiosity overriding fear.", next: 10 },
+      { text: "Slow down, taking stock of your meager energy.", next: 6 },
+      { text: "Call out again, hoping not to attract hostile things.", next: 1 }
+    ]
+  },
+  /* Scene 6 */
+  {
+    text: [
+      "Scraping your claws on the wall, you leave faint marks. It's a meager attempt to keep track of where you've been.",
+      "Yet these tunnels feel alive—somehow you suspect your marks might vanish if you lose focus. A paranoid thought... or a reality in this place?"
+    ],
+    choices: [
+      { text: "Continue marking as you move, refusing to give in to doubt.", next: 5 },
+      { text: "Abandon the marking—it feels futile now.", next: 8 },
+      { text: "Pause to rest, hoping to conserve strength.", next: 7 }
+    ]
+  },
+  /* Scene 7 */
+  {
+    text: [
+      "You attempt to rest in the darkness, letting your eyelids grow heavy. Drip... drip... The slow, rhythmic water is almost soothing.",
+      "But dread gnaws at you—could something creep closer while you sleep? Even so, your exhausted mind eventually drifts..."
+    ],
+    choices: [
+      { text: "Wake abruptly, panicking that time has passed. (random event)", next: 8 },
+      { text: "Force yourself to get up quickly, ignoring your fatigue.", next: 9 },
+      { text: "Remain in half-sleep, hoping to glean a dreamlike vision.", next: 10 }
+    ]
+  },
+
+  /* Scenes 8,9,10 -> Example "Act 2" or further. We skip details for brevity. */
+
+  /* Scene 8 -> Possibly leads to Act 2 with deeper labyrinth. */
+  {
+    text: [
+      "[Transition: Act II] The tunnel opens into a wider chamber. Strange symbols mar the walls, and a distant glow pulses like a dying star.",
+      "TinyVoid feels the faint hush of air, a possible path downward. The labyrinth beckons with silent menace..."
+    ],
+    choices: [
+      { text: "Descend into the labyrinth, bracing for horrors ahead.", next: 11 },
+      { text: "Look for any sign of life or food first.", next: 12 },
+      { text: "Attempt to retrace your steps. Maybe there's another route.", next: 2 }
+    ]
+  },
+  {
+    text: [
+      "You follow the trickling water, letting thirst guide your steps. The path slopes downward, water forming shallow pools in crevices.",
+      "Something glistens beneath the surface—a reflection, or an object? It's too dark to see clearly."
+    ],
+    choices: [
+      { text: "Reach into the murky water, taking your chances.", next: 11 },
+      { text: "Step around it, continuing deeper.", next: 12 },
+      { text: "Try to lap the water, ignoring potential contamination.", next: 13 }
+    ]
+  },
+  {
+    text: [
+      "A deep vibration underfoot intensifies. You sense an enormous presence somewhere below. The swirling purple glow above pulses in sync, " +
+      "as if this place has a heartbeat of its own.",
+      "Any wrong move could be your last. But you have no other choice but to keep going..."
+    ],
+    choices: [
+      { text: "Press on, descending into the heart of the labyrinth. (Act 3)", next: 14 },
+      { text: "Attempt a desperate call for help—maybe something friendly lurks?", next: 1 },
+      { text: "Seek a hidden nook to rest or hide. This dread is overwhelming.", next: 7 }
+    ]
+  },
+
+  /* Scenes 11-13 etc. ... skipping direct expansions for brevity ... */
+
+  /* Scene 14 -> Act 3 and final endings or more branches. */
+  {
+    text: [
+      "[Act III: The Deep Heart]",
+      "The tunnels coil into a vast cavern where pillars of black stone drip with an unearthly ichor. A faint luminescence seeps from cracks overhead, " +
+      "giving the purple swirl a nightmarish intensity.",
+      "You sense you've nearly reached the core of this place. A final choice stands between you and your fate."
+    ],
+    choices: [
+      { text: "Push forward, seeking any exit to the surface. End A", next: 97 },
+      { text: "Confront the pulsing darkness—maybe you can end its hold. End B", next: 98 },
+      { text: "Surrender to the labyrinth, letting it absorb you. End C", next: 99 }
+    ]
+  },
+
+  /* Endings: 97, 98, 99 */
+  {
+    text: [
+      "[Ending A: Broken Dawn]",
+      "At last, you find a narrow fissure leading upward, the faintest glow of real light shining through. " +
+      "With a final burst of strength, you scramble out, panting in the fresh air. The sky looks alien, " +
+      "the wind tastes of forgotten dreams. Yet you are free... or so you hope."
+    ],
+    choices: []
+  },
+  {
+    text: [
+      "[Ending B: Banisher or Bound?]",
+      "You face the pulsing darkness, letting out a defiant hiss. The shadows writhe, forming monstrous shapes. " +
+      "Your vision blurs with terror, yet you strike—claws meeting a cold, tangible force.",
+      "When the swirling glow fades, only silence remains. Did you triumph, or merely replace one horror with another?"
+    ],
+    choices: []
+  },
+  {
+    text: [
+      "[Ending C: Embrace the Abyss]",
+      "Weary beyond measure, you curl up in the darkest corner, letting the labyrinth's heartbeat sync with your own. " +
+      "A creeping warmth envelops you, swallowing fear and thought. You drift into dreams of endless tunnels, " +
+      "becoming just another shadow that roams these depths forever."
+    ],
+    choices: []
+  }
+];
+
+/********************************************************************
+ * 3. GAME STATE
+ ********************************************************************/
+let currentSceneIndex = 0;
+let currentChoices = null;
+let linesInDom = [];
+
+/********************************************************************
+ * 4. LOAD SCENE
+ ********************************************************************/
+function loadScene(index) {
+  if (index < 0 || index >= STORY.length) return;
+  currentSceneIndex = index;
+  const scene = STORY[index];
+
+  // Split paragraphs into separate sentences
+  let allSentences = [];
+  scene.text.forEach(paragraph => {
+    const sentences = paragraph
+      .split('.')
+      .map(s => s.trim())
+      .filter(Boolean);
+    sentences.forEach((raw, i) => {
+      // Re-add '.' if not present
+      if (!raw.endsWith('.') && i < sentences.length) {
+        raw += '.';
+      }
+      allSentences.push(raw);
+    });
+  });
+
+  // Type them out, sentence by sentence
+  typeSentences(allSentences, () => {
+    // Then show the choices
+    showChoices(scene.choices);
+  });
+}
+
+/********************************************************************
+ * 5. TYPE SENTENCES
+ ********************************************************************/
+function typeSentences(sentences, onComplete, index=0) {
+  if (index >= sentences.length) {
+    onComplete();
+    return;
+  }
+  slowPrintLine(sentences[index], () => {
+    setTimeout(() => {
+      typeSentences(sentences, onComplete, index+1);
+    }, 400);
+  });
+}
+
+/** Typewriter effect for a single sentence. */
+function slowPrintLine(fullText, callback) {
+  const div = document.createElement("div");
+  div.classList.add("log-line");
+  textLog.appendChild(div);
+  linesInDom.push(div);
+  fadeOldLines();
+
+  let i = 0;
+  let interval = setInterval(() => {
+    if (i >= fullText.length) {
+      clearInterval(interval);
+      callback();
+    } else {
+      div.textContent += fullText[i];
+      i++;
+    }
+    scrollToBottom();
+  }, 40 + Math.random() * 20);
+}
+
+/** Fade out the oldest lines if too many. */
+function fadeOldLines() {
+  if (linesInDom.length > 15) {
+    const oldest = linesInDom[0];
+    oldest.classList.add("fade-out");
+    setTimeout(() => {
+      if (oldest.parentNode) oldest.parentNode.removeChild(oldest);
+    }, 3000);
+    linesInDom.shift();
+  }
+}
+
+/** Auto-scroll to bottom so new lines are visible. */
+function scrollToBottom() {
+  const container = document.getElementById("text-log-container");
+  container.scrollTop = container.scrollHeight;
+}
+
+/********************************************************************
+ * 6. SHOW CHOICES
+ ********************************************************************/
+function showChoices(choices) {
+  currentChoices = choices;
+  if (!choices || choices.length === 0) {
+    slowPrintLine("[No further choices... The end.]", () => {});
+    return;
+  }
+  let text = "";
+  for (let i = 0; i < choices.length; i++) {
+    text += `[${i+1}] ${choices[i].text}\n`;
+  }
+  slowPrintLine(text, () => {});
+}
+
+/********************************************************************
+ * 7. USER INPUT
+ ********************************************************************/
+choiceInput.addEventListener("keydown", (e) => {
+  if (e.key === 'Enter') {
+    const val = choiceInput.value.trim();
+    choiceInput.value = "";
+    if (!val) return;
+
+    let num = parseInt(val, 10);
+    if (isNaN(num) || !currentChoices || num < 1 || num > currentChoices.length) {
+      slowPrintLine("*Invalid choice.*", () => {});
+      return;
+    }
+    const nextScene = currentChoices[num - 1].next;
+    loadScene(nextScene);
+  }
+});
+
+/********************************************************************
+ * 8. INIT
+ ********************************************************************/
+window.addEventListener("load", () => {
+  loadScene(0);
+});
+</script>
+</body>
+</html>
